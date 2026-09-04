@@ -76,9 +76,8 @@ table.grid-30 tr.hr-row td{border-top:1px solid #e4e8ee}
 .day-slot span{font-variant-numeric:tabular-nums;color:var(--ink)}
 .day-slot.free b{color:var(--brand);font-weight:700}
 .day-slot.free:active{background:var(--brand-soft)}
-.day-slot.booked{background:var(--bad-soft)}.day-slot.booked b{color:var(--bad)}
-.day-slot.pend{background:var(--warn-soft)}.day-slot.pend b{color:var(--warn)}
-.day-slot.cal{background:var(--cal-soft)}.day-slot.cal b{color:var(--cal)}
+.day-slot.occ{background:var(--closed)}
+.day-slot.occ span{color:#c3c9d1}
 
 /* forms */
 .f-row{margin-bottom:12px}
@@ -602,10 +601,7 @@ function timeRange(){
 }
 const legendHTML=`<div class="legend">
   <span><i class="dot" style="background:#fff;border:1px solid var(--line)"></i>可預約</span>
-  <span><i class="dot" style="background:var(--bad-soft)"></i>已預約</span>
-  <span><i class="dot" style="background:var(--warn-soft)"></i>審核中</span>
-  <span><i class="dot" style="background:var(--cal-soft)"></i>日曆占用</span>
-  <span><i class="dot" style="background:var(--closed)"></i>未開放</span>
+  <span><i class="dot" style="background:var(--closed)"></i>不可預約</span>
 </div>`;
 function scheduleHTML(role){return isMobile()?dayViewHTML(role):gridHTML(role);}
 function gridHTML(role){
@@ -630,11 +626,7 @@ function gridHTML(role){
     for(const d of days){
       const ds=fmtD(d), st=slotState(ds,m,role);
       if(st.st==='free') h+=`<td class="slot-free" onclick="pickSlot('${ds}',${m},'${role}')">${fmtT(m)}</td>`;
-      else if(st.st==='booked') h+=`<td class="slot-booked">已預約</td>`;
-      else if(st.st==='pending') h+=`<td class="slot-pending">審核中</td>`;
-      else if(st.st==='cal') h+=`<td class="slot-cal">占用</td>`;
-      else if(st.st==='past') h+=`<td class="slot-past"></td>`;
-      else h+=`<td class="slot-closed"></td>`;
+      else h+=`<td class="slot-closed"></td>`; // 已預約/審核中/日曆占用/未開放 一律全灰無字
     }
     h+='</tr>';
   }
@@ -664,9 +656,7 @@ function dayViewHTML(role){
     anyOpen=true;
     const t=`${fmtT(m)}–${fmtT(m+slot)}`;
     if(st.st==='free') h+=`<button class="day-slot free" onclick="pickSlot('${S.selDay}',${m},'${role}')"><span>${t}</span><b>預約</b></button>`;
-    else if(st.st==='booked') h+=`<div class="day-slot booked"><span>${t}</span><b>已預約</b></div>`;
-    else if(st.st==='pending') h+=`<div class="day-slot pend"><span>${t}</span><b>審核中</b></div>`;
-    else h+=`<div class="day-slot cal"><span>${t}</span><b>占用</b></div>`;
+    else h+=`<div class="day-slot occ"><span>${t}</span></div>`; // 占用時段：全灰無字
   }
   if(!anyOpen)h+='<p class="hint" style="padding:16px;text-align:center">本日未開放預約</p>';
   h+='</div>';
