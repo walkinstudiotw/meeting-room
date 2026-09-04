@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>房子會議室預約</title>
+<meta name="description" content="房子會議室線上預約——查詢可預約時段、會員時數查詢與預約。">
+<meta property="og:title" content="房子會議室預約">
+<meta property="og:description" content="線上預約會議室：查詢可預約時段、填寫資料即可完成預約。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://walkinstudiotw.github.io/meeting-room/">
 <style>
 :root{
   --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --sub:#66707d; --line:#e4e8ee;
@@ -153,7 +158,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 </style>
 </head>
 <body>
-<div class="demo-banner" id="demo-banner" style="display:none">🧪 模擬模式（?mock=1）— 假資料僅存於此頁面，未連接 Firebase</div>
 <header>
   <div class="hd-inner">
     <div class="hd-title">📅 <span id="hd-title-text">房子會議室預約</span><span id="fb-dot" title=""></span></div>
@@ -334,7 +338,12 @@ function syncMockToState(){
 }
 
 function dataInit(){
-  if(MOCK){document.getElementById('demo-banner').style.display='block';seedMock();syncMockToState();render();return;}
+  if(MOCK){
+    const b=document.createElement('div');b.className='demo-banner';
+    b.textContent='🧪 模擬模式（?mock=1）— 假資料僅存於此頁面，未連接 Firebase';
+    document.body.insertBefore(b,document.body.firstChild);
+    seedMock();syncMockToState();render();return;
+  }
   const cfg={
     apiKey:"AIzaSyBYowX8BzAMlGE1CjTAKg2y3mZyEbU4StU",
     authDomain:"talkloudpm.firebaseapp.com",
