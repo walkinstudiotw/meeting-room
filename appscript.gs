@@ -126,6 +126,7 @@ function syncTick() {
     var windowEnd = new Date(today); windowEnd.setDate(windowEnd.getDate() + windowDays + 1);
     var upd = {}; // 多路徑 patch（相對 ROOT）
 
+    processApplications_(settings, upd);
     autoConfirmMembers_(settings, bookings, schedule, today, upd);
     pushToCalendar_(settings, bookings, today, upd);
     importBusyBlocks_(settings, schedule, today, windowEnd, upd);
@@ -139,6 +140,53 @@ function syncTick() {
     throw err;
   } finally {
     lock.releaseLock();
+  }
+}
+
+// 0) 邀請連結 → 自動開通會員
+var SITE_URL = 'https://walkinstudiotw.github.io/meeting-room/';
+function processApplications_(settings, upd) {
+  var apps = fbGet('applications') || {};
+  var any = false; for (var k in apps) { any = true; break; }
+  if (!any) return;
+  var invites = fbGet('invites') || {};
+  var members = fbGet('members') || {};
+  var index = fbGet('memberIndex') || {};
+  var adminMail = props_().getProperty('ADMIN_EMAIL') || props_().getProperty('FB_EMAIL');
+  var room = settings.roomName || '會議室';
+  for (var token in apps) {
+    var app = apps[token];
+    var inv = invites[token];
+    if (!inv || inv.usedBy || !app.name || !app.phone) { upd['applications/' + token] = null; continue; }
+    var phoneKey = String(app.phone).replace(/\D/g, '');
+    if (!phoneKey) { upd['applications/' + token] = null; continue; }
+    if (index[phoneKey]) { // 手機已屬於既有會員 → 交人工處理
+      GmailApp.sendEmail(adminMail, '【' + room + '】會員申請手機重複：' + app.name,
+        '申請人 ' + app.name + '（' + app.phone + '）的手機與既有會員 ' + index[phoneKey] + ' 相同，請手動處理。\n邀請備註：' + (inv.note || '—'), { name: room });
+      upd['invites/' + token + '/usedBy'] = 'conflict';
+      upd['applications/' + token] = null;
+      continue;
+    }
+    var code = 'M' + Date.now().toString(36).toUpperCase();
+    while (members[code]) code = 'M' + (Date.now() + Math.floor(Math.random() * 1e6)).toString(36).toUpperCase();
+    var type = inv.type === 'prepaid' ? 'prepaid' : 'monthly';
+    var quota = type === 'prepaid' ? 0 : (inv.quota || 0);
+    upd['members/' + code] = { name: app.name, phone: app.phone, email: app.email || '', quota: quota, active: true, type: type, createdAt: Date.now() };
+    upd['membersPublic/' + code] = { name: app.name, quota: quota, active: true, type: type };
+    upd['memberIndex/' + phoneKey] = code;
+    upd['invites/' + token + '/usedBy'] = code;
+    upd['applications/' + token] = null;
+    members[code] = {}; index[phoneKey] = code;
+    var typeZh = type === 'prepaid' ? '會議室儲值會員' : '2F月租會員';
+    GmailApp.sendEmail(adminMail, '【' + room + '】新會員已開通：' + app.name,
+      '姓名：' + app.name + '\n電話：' + app.phone + '\nEmail：' + (app.email || '—') +
+      '\n類型：' + typeZh + (type === 'monthly' ? ('（月額度 ' + quota + 'h）') : '（請記得為其儲值時數）') +
+      '\n編號：' + code + '\n邀請備註：' + (inv.note || '—'), { name: room });
+    if (app.email) {
+      GmailApp.sendEmail(app.email, '【' + room + '】會員開通完成',
+        app.name + ' 您好，\n\n您的' + typeZh + '已開通！\n\n預約方式：前往 ' + SITE_URL +
+        ' 的「會員專區」，輸入您的手機號碼即可查詢可用時數並預約。\n\n' + room + ' 敬上', { name: room });
+    }
   }
 }
 

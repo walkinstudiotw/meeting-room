@@ -45,6 +45,20 @@
         "$other": { ".validate": false }
       }
     },
+    "invites": {
+      "$token": { ".read": true }
+    },
+    "applications": {
+      "$token": {
+        ".write": "!data.exists() && newData.exists() && root.child('meeting-room/invites').child($token).exists() && !root.child('meeting-room/invites').child($token).child('usedBy').exists()",
+        ".validate": "newData.hasChildren(['name','phone','createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 50 && newData.child('phone').isString() && newData.child('phone').val().length >= 8 && newData.child('phone').val().length <= 20 && newData.child('createdAt').isNumber()",
+        "name": { ".validate": true },
+        "phone": { ".validate": true },
+        "createdAt": { ".validate": true },
+        "email": { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "$other": { ".validate": false }
+      }
+    },
     "members": {},
     "membersPublic": {
       "$code": { ".read": true }

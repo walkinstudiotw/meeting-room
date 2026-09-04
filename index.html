@@ -226,6 +226,25 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   </div>
 </div>
 
+<!-- invite modal -->
+<div class="modal-bg" id="modal-invite">
+  <div class="modal">
+    <h3>建立會員邀請連結</h3>
+    <div class="f-row"><label>會員類型</label><select id="in-type" onchange="document.getElementById('in-quota-row').style.display=this.value==='prepaid'?'none':'block'">
+      <option value="monthly">🏢 2F 月租會員</option>
+      <option value="prepaid">💳 會議室儲值會員</option>
+    </select></div>
+    <div class="f-row" id="in-quota-row"><label>每月時數額度（小時）</label><input id="in-quota" type="number" min="0" max="200" value="10"></div>
+    <div class="f-row"><label>備註（給自己看的，例：客人稱呼）</label><input id="in-note" maxlength="50"></div>
+    <div class="f-row" style="width:160px"><label>連結有效天數</label><input id="in-days" type="number" min="1" max="90" value="7"></div>
+    <div id="in-result" style="display:none;background:var(--ok-soft);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:14px;word-break:break-all"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-sec" onclick="closeModal('modal-invite')">關閉</button>
+      <button class="btn btn-pri" id="in-create-btn" onclick="createInvite()">建立連結</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -281,13 +300,14 @@ const S={
   schedule:{},                       // date -> {bid:{s,e,st,k}}
   memberCode:null, memberPub:null, memberGrantsData:{}, memberBk:{},
   adminOn:false, adminBusy:false,
-  admin:{bookings:{},members:{},grants:{},meta:{}},
+  admin:{bookings:{},members:{},grants:{},invites:{},applications:{},meta:{}},
+  joinToken:null, joinState:null,
   myVisitor:lsGet('mr.visitor',[]),  // 訪客本機預約憑證 [{id,date,s,e,name,c}]
 };
 
 // ═══════════ 資料層（Firebase / Mock 雙模式） ═══════════
 let _db=null,_auth=null;
-const mockDB={settings:null,schedule:{},bookings:{},members:{},membersPublic:{},memberIndex:{},memberGrants:{},memberBookings:{},meta:{}};
+const mockDB={settings:null,schedule:{},bookings:{},members:{},membersPublic:{},memberIndex:{},memberGrants:{},memberBookings:{},invites:{},applications:{},meta:{}};
 
 function mockSet(path,val){ // path 'a/b/c'
   const seg=path.split('/');let o=mockDB;
@@ -306,6 +326,7 @@ function dbOnce(path){
 function syncMockToState(){
   S.schedule=mockDB.schedule;
   S.admin.bookings=mockDB.bookings;S.admin.members=mockDB.members;S.admin.grants=mockDB.memberGrants;S.admin.meta=mockDB.meta;
+  S.admin.invites=mockDB.invites;S.admin.applications=mockDB.applications;
   if(S.memberCode){
     S.memberPub=mockDB.membersPublic[S.memberCode]||null;
     S.memberGrantsData=mockDB.memberGrants[S.memberCode]||{};
@@ -362,6 +383,8 @@ function attachAdmin(){
   _db.ref(`${ROOT}/bookings`).on('value',s=>{S.admin.bookings=s.val()||{};render();});
   _db.ref(`${ROOT}/members`).on('value',s=>{S.admin.members=s.val()||{};render();});
   _db.ref(`${ROOT}/memberGrants`).on('value',s=>{S.admin.grants=s.val()||{};render();});
+  _db.ref(`${ROOT}/invites`).on('value',s=>{S.admin.invites=s.val()||{};render();});
+  _db.ref(`${ROOT}/applications`).on('value',s=>{S.admin.applications=s.val()||{};render();});
   _db.ref(`${ROOT}/meta`).on('value',s=>{S.admin.meta=s.val()||{};render();});
   ensureSettings();
 }
@@ -487,14 +510,81 @@ function slotState(dateStr,m,role){
 }
 
 // ═══════════ 導覽 ═══════════
-function switchRole(r){S.role=r;render();}
+function switchRole(r){S.role=r;if(r!=='join'&&location.hash.startsWith('#join/'))history.replaceState(null,'',location.pathname+location.search);render();}
+// ── 邀請連結（#join/<token>）──
+function checkJoinHash(){
+  const m=location.hash.match(/^#join\/([A-Za-z0-9_-]{8,40})$/);
+  if(m){S.role='join';S.joinToken=m[1];S.joinState={phase:'loading'};loadInvite();return true;}
+  return false;
+}
+window.addEventListener('hashchange',()=>{if(!checkJoinHash()&&S.role==='join'){S.role='visitor';render();}});
+async function loadInvite(){
+  try{
+    const inv=await dbOnce(`invites/${S.joinToken}`);
+    if(!inv)S.joinState={phase:'invalid'};
+    else if(inv.usedBy)S.joinState={phase:'used'};
+    else if(inv.exp&&inv.exp<fmtD(today))S.joinState={phase:'expired'};
+    else S.joinState={phase:'form',inv};
+  }catch(e){S.joinState={phase:'invalid'};}
+  render();
+}
+function viewJoin(){
+  const st=S.joinState||{phase:'loading'};
+  const wrap=inner=>`<div class="card" style="max-width:460px;margin:30px auto">${inner}</div>`;
+  if(st.phase==='loading')return wrap('<p class="hint">連結確認中…</p>');
+  if(st.phase==='invalid')return wrap('<h2>連結無效</h2><p class="hint" style="margin-top:8px">此邀請連結不存在或已被移除，請與工作室聯繫索取新連結。</p>');
+  if(st.phase==='used')return wrap('<h2>已完成註冊 ✅</h2><p class="hint" style="margin-top:8px">此連結已使用過。請至「會員專區」輸入手機號碼查詢時數並預約。</p><button class="btn btn-pri" style="margin-top:12px" onclick="switchRole(\'member\')">前往會員專區</button>');
+  if(st.phase==='expired')return wrap('<h2>連結已過期</h2><p class="hint" style="margin-top:8px">請與工作室聯繫索取新連結。</p>');
+  if(st.phase==='done')return wrap(`<h2>資料已送出 🎉</h2>
+    <p style="margin-top:8px">系統將於 <b>5 分鐘內</b>完成會員開通${st.email?'，開通後會寄通知信到您的 Email':''}。</p>
+    <p class="hint" style="margin-top:8px">開通後請至「會員專區」輸入您的手機號碼，即可查詢時數並預約會議室。</p>
+    <button class="btn btn-pri" style="margin-top:12px" onclick="switchRole('member')">前往會員專區</button>`);
+  const typeName=st.inv.type==='prepaid'?'💳 會議室儲值會員':'🏢 2F 月租會員';
+  return wrap(`<h2>會員資料填寫</h2>
+    <p class="hint" style="margin:6px 0 14px">${esc(S.settings.roomName)} 邀請您成為 <b>${typeName}</b>${st.inv.type!=='prepaid'&&st.inv.quota?`（每月 ${st.inv.quota} 小時額度）`:''}。填寫以下資料即可完成註冊：</p>
+    <div class="f-row"><label>姓名 *</label><input id="jn-name" maxlength="50" placeholder="您的稱呼"></div>
+    <div class="f-row"><label>手機號碼 *（之後以此登入查詢）</label><input id="jn-phone" maxlength="20" type="tel" inputmode="numeric" placeholder="0912-345-678"></div>
+    <div class="f-row"><label>Email（接收開通與預約通知，建議填寫）</label><input id="jn-email" maxlength="60" type="email"></div>
+    <button class="btn btn-pri" style="width:100%" id="jn-submit" onclick="submitJoin()">送出</button>`);
+}
+async function submitJoin(){
+  const name=document.getElementById('jn-name').value.trim();
+  const phone=document.getElementById('jn-phone').value.trim();
+  const email=document.getElementById('jn-email').value.trim();
+  if(!name||!phone)return toast('請填寫姓名與手機號碼');
+  if(digits(phone).length<8)return toast('手機號碼格式不正確');
+  const btn=document.getElementById('jn-submit');btn.disabled=true;
+  try{
+    await dbUpdate({[`applications/${S.joinToken}`]:{name,phone,email,createdAt:Date.now()}});
+    S.joinState={phase:'done',email:!!email};
+    if(MOCK)setTimeout(()=>{ // 模擬 GAS 自動開通
+      const code='M'+Date.now().toString(36).toUpperCase();
+      const inv=mockDB.invites[S.joinToken];
+      const type=inv.type==='prepaid'?'prepaid':'monthly';
+      const quota=type==='prepaid'?0:(inv.quota||0);
+      dbUpdate({
+        [`members/${code}`]:{name,phone,email,quota,active:true,type,createdAt:Date.now()},
+        [`membersPublic/${code}`]:{name,quota,active:true,type},
+        [`memberIndex/${digits(phone)}`]:code,
+        [`invites/${S.joinToken}/usedBy`]:code,
+        [`applications/${S.joinToken}`]:null
+      });
+      toast('✓ 會員已自動開通（模擬）');
+    },3000);
+    render();
+  }catch(e){
+    btn.disabled=false;
+    toast('送出失敗：'+(e.message||e));
+  }
+}
 function shiftWeek(n){S.weekStart=addD(S.weekStart,n*7);render();}
 function render(){
   document.getElementById('hd-room').textContent=S.settings.roomName;
   ['visitor','member','admin'].forEach(r=>document.getElementById('nav-'+r).classList.toggle('on',S.role===r));
   const v=document.getElementById('view');
   if(!S.settingsLoaded){v.innerHTML='<div class="card"><p class="hint">載入中…</p></div>';return;}
-  if(S.role==='visitor')v.innerHTML=viewVisitor();
+  if(S.role==='join')v.innerHTML=viewJoin();
+  else if(S.role==='visitor')v.innerHTML=viewVisitor();
   else if(S.role==='member')v.innerHTML=viewMember();
   else v.innerHTML=viewAdmin();
   if(S.role==='admin'&&S.adminOn&&S.aTab==='settings')updateEventPreview();
@@ -928,7 +1018,71 @@ function adminMembers(){
     <td style="white-space:nowrap"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
       <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
   </table></div>
-  <p class="hint" style="margin-top:10px">🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>`;
+  <p class="hint" style="margin-top:10px">🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
+  ${adminInvitesHTML()}`;
+}
+// ── 會員邀請連結 ──
+function inviteURL(t){return location.origin+location.pathname+'#join/'+t;}
+function copyInvite(t){
+  const url=inviteURL(t);
+  (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('已複製邀請連結'))
+    .catch(()=>{prompt('請手動複製連結：',url);});
+}
+function adminInvitesHTML(){
+  const tStr=fmtD(today);
+  const rows=Object.entries(S.admin.invites||{}).map(([t,inv])=>({t,...inv}))
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,20);
+  return `<div class="card"><h2>📨 會員邀請連結 <button class="btn btn-pri btn-sm" style="float:right" onclick="openInviteModal()">＋ 建立邀請</button></h2>
+  <p class="hint" style="margin-bottom:8px">建立連結傳給客人（LINE / Email），客人填完基本資料後系統於 5 分鐘內自動開通會員並通知雙方。</p>
+  ${rows.length?rows.map(inv=>{
+    const app=(S.admin.applications||{})[inv.t];
+    let stChip;
+    if(inv.usedBy==='conflict')stChip='<span class="chip chip-rejected">手機重複，待處理</span>';
+    else if(inv.usedBy)stChip=`<span class="chip chip-confirmed">已開通 ${esc(inv.usedBy)}</span>`;
+    else if(app)stChip='<span class="chip chip-pending">已填寫，開通中…</span>';
+    else if(inv.exp&&inv.exp<tStr)stChip='<span class="chip chip-cancelled">已過期</span>';
+    else stChip='<span class="chip chip-m">待填寫</span>';
+    return `<div class="list-item">
+      <div class="list-main"><b>${esc(inv.note||'（無備註）')}</b> ${typeChip(inv.type)}
+        <div class="list-sub">${inv.type!=='prepaid'?`月額度 ${inv.quota||0}h・`:''}建立 ${inv.createdAt?new Date(inv.createdAt).toLocaleDateString('zh-TW'):''}・效期至 ${esc(inv.exp||'—')}${app?`・填寫人 ${esc(app.name)}（${esc(app.phone)}）`:''}</div></div>
+      ${stChip}
+      ${!inv.usedBy?`<button class="btn btn-sec btn-sm" onclick="copyInvite('${inv.t}')">複製連結</button>
+      <button class="btn btn-bad btn-sm" onclick="delInvite('${inv.t}')">刪除</button>`:''}
+    </div>`;}).join(''):'<p class="hint">尚未建立任何邀請連結</p>'}
+  </div>`;
+}
+function openInviteModal(){
+  document.getElementById('in-type').value='monthly';
+  document.getElementById('in-quota-row').style.display='block';
+  document.getElementById('in-quota').value=10;
+  document.getElementById('in-note').value='';
+  document.getElementById('in-days').value=7;
+  document.getElementById('in-result').style.display='none';
+  document.getElementById('in-create-btn').disabled=false;
+  openModal('modal-invite');
+}
+async function createInvite(){
+  const type=document.getElementById('in-type').value==='prepaid'?'prepaid':'monthly';
+  const quota=type==='prepaid'?0:Math.max(0,+document.getElementById('in-quota').value||0);
+  const note=document.getElementById('in-note').value.trim();
+  const days=Math.min(90,Math.max(1,+document.getElementById('in-days').value||7));
+  const token=newId();
+  try{
+    await dbUpdate({[`invites/${token}`]:{type,quota,note,createdAt:Date.now(),exp:fmtD(addD(today,days))}});
+    const box=document.getElementById('in-result');
+    box.style.display='block';
+    box.innerHTML=`✅ 連結已建立：<br><b>${esc(inviteURL(token))}</b><br>
+      <button class="btn btn-pri btn-sm" style="margin-top:8px" onclick="copyInvite('${token}')">📋 複製連結</button>`;
+    document.getElementById('in-create-btn').disabled=true;
+    render();
+  }catch(e){toast('建立失敗：'+(e.message||e));}
+}
+async function delInvite(t){
+  if(!confirm('刪除此邀請連結？（已寄出的連結將失效）'))return;
+  try{
+    await dbUpdate({[`invites/${t}`]:null,[`applications/${t}`]:null});
+    toast('已刪除邀請連結');
+  }catch(e){toast('刪除失敗：'+(e.message||e));}
 }
 const MEMBER_TYPES={monthly:'2F月租',prepaid:'儲值'};
 function memTypeChanged(){
@@ -1106,7 +1260,7 @@ async function saveSettings(){
 }
 
 dataInit();
-render();
+if(!checkJoinHash())render();
 </script>
 </body>
 </html>
