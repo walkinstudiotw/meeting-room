@@ -183,9 +183,10 @@ function autoConfirmMembers_(settings, bookings, schedule, today, upd) {
         if (b.s < ev.e && b.e > ev.s) { reason = '時段已被其他預約占用'; break; }
       }
     }
-    // 時數批次
+    // 時數批次（儲值會員無月額度）
     if (!reason) {
-      var grants = allocate_(buildGrants_(mem.quota || 0, grantsAll[code], today), (confirmedUses[code] || []).slice());
+      var quota = (mem.type === 'prepaid') ? 0 : (mem.quota || 0);
+      var grants = allocate_(buildGrants_(quota, grantsAll[code], today), (confirmedUses[code] || []).slice());
       var avail = availFor_(grants, b.date);
       var need = (b.e - b.s) / 60;
       if (need > avail) reason = '可用時數不足（剩 ' + avail + ' 小時）';

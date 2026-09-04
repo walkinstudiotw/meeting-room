@@ -192,10 +192,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   <div class="modal">
     <h3 id="mem-modal-title">新增會員</h3>
     <div class="f-row"><label>會員編號（英數，建立後不可改）</label><input id="me-code" maxlength="12" placeholder="例：M003"></div>
+    <div class="f-row"><label>會員類型</label><select id="me-type" onchange="memTypeChanged()">
+      <option value="monthly">🏢 2F 月租會員（每月自動發放額度）</option>
+      <option value="prepaid">💳 會議室儲值會員（購買時數批次使用）</option>
+    </select></div>
     <div class="f-row"><label>姓名 *</label><input id="me-name" maxlength="50"></div>
     <div class="f-row"><label>電話 *（會員以此查詢登入）</label><input id="me-phone" maxlength="20" type="tel"></div>
     <div class="f-row"><label>Email</label><input id="me-email" maxlength="60"></div>
-    <div class="f-row"><label>每月時數額度（小時，0=無月額度）</label><input id="me-quota" type="number" min="0" max="200" value="10"></div>
+    <div class="f-row" id="me-quota-row"><label>每月時數額度（小時）</label><input id="me-quota" type="number" min="0" max="200" value="10"></div>
+    <p class="hint" id="me-type-hint" style="margin:-4px 0 12px"></p>
     <div class="f-row"><label><input type="checkbox" id="me-active" checked style="width:auto;margin-right:6px">啟用中</label></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-sec" onclick="closeModal('modal-mem')">取消</button>
@@ -375,10 +380,10 @@ function seedMock(){
   mockDB.settings.payment.bankInfo='（範例）國泰世華 013・123-456-789012・戶名 WalkIn Studio';
   S.settings=mockDB.settings;
   mockDB.members={
-    M001:{name:'林小姐',phone:'0912345678',email:'lin@example.com',quota:10,active:true,createdAt:Date.now()},
-    M002:{name:'張先生',phone:'0987654321',email:'chang@example.com',quota:8,active:true,createdAt:Date.now()}
+    M001:{name:'林小姐',phone:'0912345678',email:'lin@example.com',quota:10,active:true,type:'monthly',createdAt:Date.now()},
+    M002:{name:'張先生',phone:'0987654321',email:'chang@example.com',quota:0,active:true,type:'prepaid',createdAt:Date.now()}
   };
-  mockDB.membersPublic={M001:{name:'林小姐',quota:10,active:true},M002:{name:'張先生',quota:8,active:true}};
+  mockDB.membersPublic={M001:{name:'林小姐',quota:10,active:true,type:'monthly'},M002:{name:'張先生',quota:0,active:true,type:'prepaid'}};
   mockDB.memberIndex={'0912345678':'M001','0987654321':'M002'};
   const D=n=>fmtD(addD(today,n));
   function nextWD(n){let d=new Date(today),c=0;while(c<n){d=addD(d,1);if(d.getDay()>=1&&d.getDay()<=5)c++;}return fmtD(d);}
@@ -405,6 +410,7 @@ function seedMock(){
   put(nextSat(),M(18),M(20),'m','confirmed','張先生',{memberCode:'M002'});
   put(D(-3),M(10),M(13),'m','confirmed','林小姐',{memberCode:'M001'});
   mockDB.memberGrants.M001={g1:{h:5,start:D(-10),exp:D(60),note:'加購',at:Date.now()}};
+  mockDB.memberGrants.M002={g2:{h:10,start:D(-5),exp:D(180),note:'儲值 10 小時',at:Date.now()}};
 }
 
 // ═══════════ 時數批次制 ═══════════
@@ -412,13 +418,13 @@ function monthEndStr(y,mo){return `${y}-${pad(mo+1)}-${pad(new Date(y,mo+1,0).ge
 function memberDataFor(code){ // {quota, grants:{gid:{...}}, uses:[{date,h,c}]}
   let quota=0,grants={},uses=[];
   if(S.adminOn&&S.admin.members[code]){
-    quota=S.admin.members[code].quota||0;
+    quota=S.admin.members[code].type==='prepaid'?0:(S.admin.members[code].quota||0);
     grants=(S.admin.grants||{})[code]||{};
     uses=Object.values(S.admin.bookings)
       .filter(b=>b.memberCode===code&&b.payMethod!=='transfer'&&(b.status==='confirmed'||b.status==='pending'))
       .map(b=>({date:b.date,h:(b.e-b.s)/60,c:b.createdAt||0}));
   }else if(S.memberCode===code&&S.memberPub){
-    quota=S.memberPub.quota||0;
+    quota=S.memberPub.type==='prepaid'?0:(S.memberPub.quota||0);
     grants=S.memberGrantsData||{};
     for(const ym of Object.keys(S.memberBk||{}))
       for(const b of Object.values(S.memberBk[ym]))
@@ -618,6 +624,9 @@ function chip(st){
   const m={pending:['審核中','chip-pending'],confirmed:['已確認','chip-confirmed'],rejected:['已婉拒','chip-rejected'],cancelled:['已取消','chip-cancelled']};
   const x=m[st]||[st,''];return `<span class="chip ${x[1]}">${x[0]}</span>`;
 }
+function typeChip(t){
+  return t==='prepaid'?'<span class="chip chip-v">💳 儲值</span>':'<span class="chip chip-m">🏢 2F月租</span>';
+}
 
 // ═══════════ 會員視圖 ═══════════
 function viewMember(){
@@ -635,7 +644,7 @@ function viewMember(){
   myBk.sort((a,b)=>b.date.localeCompare(a.date)||b.s-a.s);
   return `
   <div class="card"><div class="mem-card">
-    <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div>
+    <div><div style="font-size:17px;font-weight:700">${esc(m.name)} ${typeChip(m.type)}</div>
       <div class="hint">目前可用時數</div></div>
     <div class="mem-quota">
       <span class="mem-num">${fmtH(bal.total*60)}</span><span class="hint"> 小時</span>
@@ -911,26 +920,37 @@ function adminOverview(){
 }
 function adminMembers(){
   return `<div class="card"><h2>會員管理 <button class="btn btn-pri btn-sm" style="float:right" onclick="openMemModal(null)">＋ 新增會員</button></h2>
-  <div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
-  ${Object.entries(S.admin.members).map(([c,m])=>`<tr><td><b>${esc(c)}</b></td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
-    <td>${m.quota||0}h</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>類型</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
+  ${Object.entries(S.admin.members).map(([c,m])=>`<tr><td><b>${esc(c)}</b></td>
+    <td>${typeChip(m.type)}</td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
+    <td>${m.type==='prepaid'?'—':(m.quota||0)+'h'}</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
     <td>${m.active!==false?'<span class="chip chip-confirmed">啟用</span>':'<span class="chip chip-cancelled">停用</span>'}</td>
-    <td style="white-space:nowrap"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">發放時數</button>
+    <td style="white-space:nowrap"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
       <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
   </table></div>
-  <p class="hint" style="margin-top:10px">每月額度於 1 號自動生效、當月月底到期；「發放時數」可手動加開一批自訂到期日的時數。扣抵時自動先用快到期的批次。會員以手機號碼查詢登入。</p></div>`;
+  <p class="hint" style="margin-top:10px">🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>`;
+}
+const MEMBER_TYPES={monthly:'2F月租',prepaid:'儲值'};
+function memTypeChanged(){
+  const t=document.getElementById('me-type').value;
+  document.getElementById('me-quota-row').style.display=t==='prepaid'?'none':'block';
+  document.getElementById('me-type-hint').textContent=t==='prepaid'
+    ?'儲值會員無月額度，時數請用「發放時數」加值（可設使用期限）。'
+    :'月租會員每月 1 號自動發放額度、當月月底歸零；也可另外「發放時數」加值。';
 }
 function openMemModal(code){
   S.editMemCode=code;
   document.getElementById('mem-modal-title').textContent=code?'編輯會員 '+code:'新增會員';
-  const m=code?S.admin.members[code]:{name:'',phone:'',email:'',quota:10,active:true};
+  const m=code?S.admin.members[code]:{name:'',phone:'',email:'',quota:10,active:true,type:'monthly'};
   document.getElementById('me-code').value=code||'';
   document.getElementById('me-code').disabled=!!code;
+  document.getElementById('me-type').value=m.type==='prepaid'?'prepaid':'monthly';
   document.getElementById('me-name').value=m.name||'';
   document.getElementById('me-phone').value=m.phone||'';
   document.getElementById('me-email').value=m.email||'';
   document.getElementById('me-quota').value=m.quota||0;
   document.getElementById('me-active').checked=m.active!==false;
+  memTypeChanged();
   openModal('modal-mem');
 }
 async function saveMember(){
@@ -946,13 +966,14 @@ async function saveMember(){
   for(const[c,m]of Object.entries(S.admin.members))
     if(c!==code&&digits(m.phone)===phoneKey)return toast(`此手機已屬於會員 ${c}`);
   const email=document.getElementById('me-email').value.trim();
-  const quota=Math.max(0,+document.getElementById('me-quota').value||0);
+  const type=document.getElementById('me-type').value==='prepaid'?'prepaid':'monthly';
+  const quota=type==='prepaid'?0:Math.max(0,+document.getElementById('me-quota').value||0);
   const active=document.getElementById('me-active').checked;
   const old=S.editMemCode?S.admin.members[S.editMemCode]:null;
   try{
     const upd={
-      [`members/${code}`]:{name,phone,email,quota,active,createdAt:(old&&old.createdAt)||Date.now()},
-      [`membersPublic/${code}`]:{name,quota,active},
+      [`members/${code}`]:{name,phone,email,quota,active,type,createdAt:(old&&old.createdAt)||Date.now()},
+      [`membersPublic/${code}`]:{name,quota,active,type},
       [`memberIndex/${phoneKey}`]:code
     };
     if(old&&digits(old.phone)&&digits(old.phone)!==phoneKey)upd[`memberIndex/${digits(old.phone)}`]=null;
@@ -963,10 +984,13 @@ async function saveMember(){
 // ── 手動發放時數 ──
 function openGrantModal(code){
   S.grantCode=code;
-  document.getElementById('grant-title').textContent=`發放時數 — ${(S.admin.members[code]||{}).name||code}`;
-  document.getElementById('gr-h').value=5;
-  document.getElementById('gr-exp').value=fmtD(addD(today,90));
+  const m=S.admin.members[code]||{};
+  const isPre=m.type==='prepaid';
+  document.getElementById('grant-title').textContent=`${isPre?'儲值':'發放時數'} — ${m.name||code}`;
+  document.getElementById('gr-h').value=isPre?10:5;
+  document.getElementById('gr-exp').value=fmtD(addD(today,isPre?180:90));
   document.getElementById('gr-note').value='';
+  document.getElementById('gr-note').placeholder=isPre?'例：儲值 10 小時方案':'例：加購 / 活動贈送';
   renderGrantList();openModal('modal-grant');
 }
 function renderGrantList(){
