@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WalkIn 會議室預約</title>
+<title>房子會議室預約</title>
 <style>
 :root{
   --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --sub:#66707d; --line:#e4e8ee;
@@ -156,7 +156,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 <div class="demo-banner" id="demo-banner" style="display:none">🧪 模擬模式（?mock=1）— 假資料僅存於此頁面，未連接 Firebase</div>
 <header>
   <div class="hd-inner">
-    <div class="hd-title">📅 WalkIn 會議室預約<small id="hd-room"></small><span id="fb-dot" title=""></span></div>
+    <div class="hd-title">📅 <span id="hd-title-text">房子會議室預約</span><span id="fb-dot" title=""></span></div>
     <nav>
       <button id="nav-visitor" onclick="switchRole('visitor')">訪客預約</button>
       <button id="nav-member" onclick="switchRole('member')">會員專區</button>
@@ -578,7 +578,9 @@ async function submitJoin(){
 }
 function shiftWeek(n){S.weekStart=addD(S.weekStart,n*7);render();}
 function render(){
-  document.getElementById('hd-room').textContent=S.settings.roomName;
+  const title=(S.settings.roomName||'會議室')+'預約';
+  document.getElementById('hd-title-text').textContent=title;
+  document.title=title;
   ['visitor','member','admin'].forEach(r=>document.getElementById('nav-'+r).classList.toggle('on',S.role===r));
   const v=document.getElementById('view');
   if(!S.settingsLoaded){v.innerHTML='<div class="card"><p class="hint">載入中…</p></div>';return;}
