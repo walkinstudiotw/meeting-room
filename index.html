@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WalkIn 會議室預約</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --ink:#1c2430; --sub:#66707d; --line:#e4e8ee;
+  --brand:#2f6fed; --brand-soft:#eaf1ff;
+  --ok:#1a9e5c; --ok-soft:#e6f6ee;
+  --warn:#c77d00; --warn-soft:#fff4e0;
+  --bad:#d64545; --bad-soft:#fdecec;
+  --cal:#7a5cc4; --cal-soft:#f0ebfb;
+  --closed:#eef0f3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px}
+code{background:var(--closed);border-radius:4px;padding:0 4px;font-size:13px}
+
+.demo-banner{background:#1c2430;color:#ffd66b;text-align:center;padding:6px 10px;font-size:13px}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.hd-inner{max-width:1060px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hd-title{font-size:18px;font-weight:700}
+.hd-title small{color:var(--sub);font-weight:400;font-size:12px;margin-left:6px}
+#fb-dot{font-size:10px;margin-left:4px}
+nav{display:flex;gap:6px;margin-left:auto}
+nav button{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:7px 16px;font-size:14px;color:var(--sub)}
+nav button.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+
+main{max-width:1060px;margin:0 auto;padding:18px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h2{font-size:16px;margin-bottom:10px}
+.hint{color:var(--sub);font-size:13px}
+.notice{background:var(--warn-soft);border:1px solid #f2dfb6;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+
+/* week nav */
+.week-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.week-nav .wk-label{font-weight:700;font-size:16px}
+.week-nav button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;font-size:14px}
+.legend{display:flex;gap:14px;margin-left:auto;font-size:12px;color:var(--sub);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* grid */
+.grid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table.grid{border-collapse:collapse;width:100%;min-width:720px}
+.grid th{font-size:12px;font-weight:600;color:var(--sub);padding:8px 4px;border-bottom:1px solid var(--line);background:#fafbfc;position:sticky;top:0}
+.grid th .d-num{font-size:15px;color:var(--ink);display:block}
+.grid th.today .d-num{color:var(--brand)}
+.grid td{border:1px solid #f0f2f5;height:38px;text-align:center;font-size:12px;min-width:88px}
+.grid td.time{background:#fafbfc;color:var(--sub);font-size:11px;min-width:52px;width:52px;border-right:1px solid var(--line)}
+td.slot-free{background:#fff;cursor:pointer;color:#aeb8c4;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+td.slot-free:hover{background:var(--brand-soft);color:var(--brand);font-weight:700}
+td.slot-closed{background:var(--closed);color:#c3c9d1}
+td.slot-past{background:var(--closed);color:#c3c9d1}
+td.slot-booked{background:var(--bad-soft);color:var(--bad);font-weight:600}
+td.slot-pending{background:var(--warn-soft);color:var(--warn);font-weight:600}
+td.slot-cal{background:var(--cal-soft);color:var(--cal);font-weight:600}
+table.grid-30 td{height:24px;font-size:11px}
+table.grid-30 tr td{border-top:1px dashed #f3f5f8}
+table.grid-30 tr.hr-row td{border-top:1px solid #e4e8ee}
+
+/* 手機單日檢視 */
+.day-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.day-chip{flex:1;min-width:44px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--sub)}
+.day-chip b{font-size:16px;color:var(--ink)}
+.day-chip.is-today b{color:var(--brand)}
+.day-chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.day-chip.on b{color:#fff}
+.day-list{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.day-slot{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 16px;border:none;border-bottom:1px solid #f0f2f5;font-size:15px;background:#fff;text-align:left}
+.day-slot:last-child{border-bottom:none}
+.day-slot span{font-variant-numeric:tabular-nums;color:var(--ink)}
+.day-slot.free b{color:var(--brand);font-weight:700}
+.day-slot.free:active{background:var(--brand-soft)}
+.day-slot.booked{background:var(--bad-soft)}.day-slot.booked b{color:var(--bad)}
+.day-slot.pend{background:var(--warn-soft)}.day-slot.pend b{color:var(--warn)}
+.day-slot.cal{background:var(--cal-soft)}.day-slot.cal b{color:var(--cal)}
+
+/* forms */
+.f-row{margin-bottom:12px}
+.f-row label{display:block;font-size:13px;color:var(--sub);margin-bottom:4px}
+.f-row input,.f-row select,.f-row textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:#fff}
+.f-row textarea{resize:vertical;min-height:60px}
+.btn{border:none;border-radius:9px;padding:10px 20px;font-size:15px;font-weight:600}
+.btn-pri{background:var(--brand);color:#fff}
+.btn-sec{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.btn-ok{background:var(--ok);color:#fff}
+.btn-bad{background:var(--bad-soft);color:var(--bad)}
+.btn-sm{padding:6px 12px;font-size:13px;border-radius:7px}
+.btn[disabled]{opacity:.5;cursor:default}
+
+/* 付款區塊 */
+.f-row label.pay-opt{display:flex;align-items:flex-start;gap:8px;padding:8px 0;margin:0;font-size:14px;color:var(--ink);cursor:pointer;line-height:1.5}
+.f-row .pay-opt input[type=radio]{width:16px;height:16px;flex:none;margin:2px 0 0;accent-color:var(--brand)}
+.pay-opt .pay-txt{flex:1}
+.pay-box{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:6px;font-size:14px}
+.pay-warn{background:var(--warn-soft);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--warn);margin:6px 0}
+
+/* chips */
+.chip{display:inline-block;border-radius:12px;padding:2px 10px;font-size:12px;font-weight:600}
+.chip-pending{background:var(--warn-soft);color:var(--warn)}
+.chip-confirmed{background:var(--ok-soft);color:var(--ok)}
+.chip-rejected{background:var(--bad-soft);color:var(--bad)}
+.chip-cancelled{background:var(--closed);color:var(--sub)}
+.chip-m{background:var(--brand-soft);color:var(--brand)}
+.chip-v{background:#f0ebfb;color:var(--cal)}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(20,26,34,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:30px 14px;overflow-y:auto}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:430px}
+.modal h3{font-size:17px;margin-bottom:14px}
+
+/* toast */
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#1c2430;color:#fff;border-radius:10px;padding:11px 20px;font-size:14px;display:none;z-index:99;max-width:90vw;text-align:center}
+
+/* member card */
+.mem-card{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.mem-quota{flex:1;min-width:220px}
+.mem-num{font-size:26px;font-weight:800;color:var(--brand)}
+
+/* lists / tables */
+.list-item{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.list-item:last-child{border-bottom:none}
+.list-main{flex:1;min-width:200px}
+.list-main b{font-size:15px}
+.list-sub{font-size:13px;color:var(--sub)}
+table.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{font-size:12px;color:var(--sub);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 6px;border-bottom:1px solid #f0f2f5}
+
+/* admin tabs */
+.a-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.a-tabs button{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:8px 14px;font-size:14px;color:var(--sub)}
+.a-tabs button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.badge{background:var(--bad);color:#fff;border-radius:10px;font-size:11px;padding:1px 7px;margin-left:4px}
+
+/* settings hours editor */
+.oh-grid{display:grid;grid-template-columns:52px 1fr 1fr 90px;gap:8px;align-items:center;font-size:14px}
+.oh-grid select{border:1px solid var(--line);border-radius:7px;padding:6px}
+.oh-head{font-size:12px;color:var(--sub)}
+.sec-title{font-weight:700;margin:16px 0 8px;font-size:15px}
+
+@media (max-width:640px){
+  .hd-inner{padding:10px 12px}
+  nav{width:100%;justify-content:space-between}
+  nav button{flex:1}
+  main{padding:14px 10px 60px}
+}
+</style>
+</head>
+<body>
+<div class="demo-banner" id="demo-banner" style="display:none">🧪 模擬模式（?mock=1）— 假資料僅存於此頁面，未連接 Firebase</div>
+<header>
+  <div class="hd-inner">
+    <div class="hd-title">📅 WalkIn 會議室預約<small id="hd-room"></small><span id="fb-dot" title=""></span></div>
+    <nav>
+      <button id="nav-visitor" onclick="switchRole('visitor')">訪客預約</button>
+      <button id="nav-member" onclick="switchRole('member')">會員專區</button>
+      <button id="nav-admin" onclick="switchRole('admin')">管理後台</button>
+    </nav>
+  </div>
+</header>
+<main id="view"><div class="card"><p class="hint">載入中…</p></div></main>
+
+<!-- booking modal -->
+<div class="modal-bg" id="modal-book">
+  <div class="modal">
+    <h3 id="bk-title">預約會議室</h3>
+    <div class="f-row"><label>日期時間</label><div id="bk-when" style="font-weight:700"></div></div>
+    <div class="f-row"><label>使用時長</label><select id="bk-dur" onchange="updatePayUI()"></select></div>
+    <div id="bk-visitor-fields">
+      <div class="f-row"><label>姓名 *</label><input id="bk-name" maxlength="50" placeholder="您的稱呼"></div>
+      <div class="f-row"><label>電話 *</label><input id="bk-phone" maxlength="20" type="tel" placeholder="0912-345-678"></div>
+      <div class="f-row"><label>Email</label><input id="bk-email" maxlength="60" placeholder="用於接收確認通知（選填）"></div>
+    </div>
+    <div class="f-row" id="bk-pay"></div>
+    <div class="f-row"><label>備註</label><textarea id="bk-note" maxlength="300" placeholder="用途、人數等（選填）"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-sec" onclick="closeModal('modal-book')">取消</button>
+      <button class="btn btn-pri" id="bk-submit" onclick="submitBooking()">送出預約</button>
+    </div>
+  </div>
+</div>
+
+<!-- member edit modal -->
+<div class="modal-bg" id="modal-mem">
+  <div class="modal">
+    <h3 id="mem-modal-title">新增會員</h3>
+    <div class="f-row"><label>會員編號（英數，建立後不可改）</label><input id="me-code" maxlength="12" placeholder="例：M003"></div>
+    <div class="f-row"><label>姓名 *</label><input id="me-name" maxlength="50"></div>
+    <div class="f-row"><label>電話 *（會員以此查詢登入）</label><input id="me-phone" maxlength="20" type="tel"></div>
+    <div class="f-row"><label>Email</label><input id="me-email" maxlength="60"></div>
+    <div class="f-row"><label>每月時數額度（小時，0=無月額度）</label><input id="me-quota" type="number" min="0" max="200" value="10"></div>
+    <div class="f-row"><label><input type="checkbox" id="me-active" checked style="width:auto;margin-right:6px">啟用中</label></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-sec" onclick="closeModal('modal-mem')">取消</button>
+      <button class="btn btn-pri" onclick="saveMember()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- grant modal -->
+<div class="modal-bg" id="modal-grant">
+  <div class="modal">
+    <h3 id="grant-title">發放時數</h3>
+    <div style="display:flex;gap:12px">
+      <div class="f-row" style="flex:1"><label>時數（小時）</label><input id="gr-h" type="number" min="0.5" step="0.5" value="5"></div>
+      <div class="f-row" style="flex:1.4"><label>使用期限（含當日）</label><input id="gr-exp" type="date"></div>
+    </div>
+    <div class="f-row"><label>備註</label><input id="gr-note" maxlength="50" placeholder="例：加購 10 小時方案 / 活動贈送"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin:4px 0 14px">
+      <button class="btn btn-sec" onclick="closeModal('modal-grant')">關閉</button>
+      <button class="btn btn-pri" onclick="saveGrant()">發放</button>
+    </div>
+    <div id="gr-list"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+'use strict';
+// ═══════════ 基本工具 ═══════════
+const MOCK=new URLSearchParams(location.search).has('mock');
+const ROOT='meeting-room';
+const ADMIN_EMAIL='walkinstudiotw@gmail.com';
+const DAY_KEYS=['sun','mon','tue','wed','thu','fri','sat'];
+const DAY_ZH=['日','一','二','三','四','五','六'];
+const pad=n=>String(n).padStart(2,'0');
+const fmtD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=new Date(); today.setHours(0,0,0,0);
+function addD(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+const M=h=>h*60;
+const fmtT=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const fmtDur=m=>m%60===0?`${m/60} 小時`:(m<60?`${m} 分鐘`:`${Math.floor(m/60)} 小時 ${m%60} 分`);
+const fmtH=m=>{const h=m/60;return (h%1===0?h:+h.toFixed(1));};
+const digits=s=>String(s||'').replace(/\D/g,'');
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',3600);}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function lsGet(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v;}catch(e){return fb;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+const DEFAULT_SETTINGS={
+  roomName:'WalkIn Studio 會議室',
+  notice:'預約後請準時抵達；如需取消請提前一天告知。',
+  slotMinutes:30, bookingWindowDays:30,
+  openHours:{
+    visitor:{mon:[10,18],tue:[10,18],wed:[10,18],thu:[10,18],fri:[10,18],sat:null,sun:null},
+    member:{mon:[9,22],tue:[9,22],wed:[9,22],thu:[9,22],fri:[9,22],sat:[10,20],sun:null}
+  },
+  payment:{hourlyRate:350,bankInfo:'（請至後台設定匯款帳戶資訊）'},
+  calendar:{
+    calendarId:'u37l7i10ki1tmpgc2q67g5qnm0@group.calendar.google.com',
+    eventTitle:'【預約】{name}（{type}）',
+    eventDesc:'電話：{phone}\n備註：{note}'
+  }
+};
+
+// ═══════════ 狀態 ═══════════
+const S={
+  role:'visitor', aTab:'pending',
+  weekStart:(()=>{const d=new Date(today);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;})(),
+  selDay:fmtD(today),
+  pick:null, editMemCode:null, grantCode:null,
+  settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), settingsLoaded:MOCK,
+  schedule:{},                       // date -> {bid:{s,e,st,k}}
+  memberCode:null, memberPub:null, memberGrantsData:{}, memberBk:{},
+  adminOn:false, adminBusy:false,
+  admin:{bookings:{},members:{},grants:{},meta:{}},
+  myVisitor:lsGet('mr.visitor',[]),  // 訪客本機預約憑證 [{id,date,s,e,name,c}]
+};
+
+// ═══════════ 資料層（Firebase / Mock 雙模式） ═══════════
+let _db=null,_auth=null;
+const mockDB={settings:null,schedule:{},bookings:{},members:{},membersPublic:{},memberIndex:{},memberGrants:{},memberBookings:{},meta:{}};
+
+function mockSet(path,val){ // path 'a/b/c'
+  const seg=path.split('/');let o=mockDB;
+  for(let i=0;i<seg.length-1;i++){o[seg[i]]=o[seg[i]]||{};o=o[seg[i]];}
+  const last=seg[seg.length-1];
+  if(val===null)delete o[last];else o[last]=val;
+}
+function dbUpdate(upd){ // multi-path update（路徑相對 ROOT）
+  if(MOCK){for(const[p,v]of Object.entries(upd))mockSet(p,v);syncMockToState();render();return Promise.resolve();}
+  return _db.ref(ROOT).update(upd);
+}
+function dbOnce(path){
+  if(MOCK){const seg=path.split('/');let o=mockDB;for(const s of seg){if(o==null)return Promise.resolve(null);o=o[s];}return Promise.resolve(o??null);}
+  return _db.ref(`${ROOT}/${path}`).once('value').then(s=>s.val());
+}
+function syncMockToState(){
+  S.schedule=mockDB.schedule;
+  S.admin.bookings=mockDB.bookings;S.admin.members=mockDB.members;S.admin.grants=mockDB.memberGrants;S.admin.meta=mockDB.meta;
+  if(S.memberCode){
+    S.memberPub=mockDB.membersPublic[S.memberCode]||null;
+    S.memberGrantsData=mockDB.memberGrants[S.memberCode]||{};
+    S.memberBk=mockDB.memberBookings[S.memberCode]||{};
+  }
+}
+
+function dataInit(){
+  if(MOCK){document.getElementById('demo-banner').style.display='block';seedMock();syncMockToState();render();return;}
+  const cfg={
+    apiKey:"AIzaSyBYowX8BzAMlGE1CjTAKg2y3mZyEbU4StU",
+    authDomain:"talkloudpm.firebaseapp.com",
+    databaseURL:"https://talkloudpm-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"talkloudpm",
+    storageBucket:"talkloudpm.firebasestorage.app",
+    messagingSenderId:"227085703685",
+    appId:"1:227085703685:web:ab84ab17717aa2f7739a6c"
+  };
+  firebase.initializeApp(cfg);
+  _db=firebase.database();_auth=firebase.auth();
+  _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+  _db.ref('.info/connected').on('value',s=>{const el=document.getElementById('fb-dot');if(el){el.textContent=s.val()?'🟢':'🔴';el.title=s.val()?'已連線':'離線';}});
+  _db.ref(`${ROOT}/settings`).on('value',s=>{
+    const v=s.val();
+    if(v)S.settings=mergeSettings(v);
+    S.settingsLoaded=true;render();
+  },err=>{S.settingsLoaded=true;render();console.warn('settings read:',err);});
+  _db.ref(`${ROOT}/schedule`).on('value',s=>{S.schedule=s.val()||{};render();},err=>console.warn('schedule read:',err));
+  _auth.onAuthStateChanged(u=>{
+    const was=S.adminOn;
+    S.adminOn=!!(u&&u.email&&u.email.toLowerCase()===ADMIN_EMAIL);
+    if(S.adminOn&&!was)attachAdmin();
+    render();
+  });
+  // 記住上次會員手機
+  const ph=lsGet('mr.phone',null);
+  if(ph)setTimeout(()=>{const el=document.getElementById('mem-login');if(el)el.value=ph;},300);
+}
+function mergeSettings(v){ // DB 值疊在預設值上，缺欄位不炸
+  const d=JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  const out=Object.assign(d,v);
+  out.openHours=Object.assign(d.openHours,v.openHours||{});
+  out.openHours.visitor=Object.assign(d.openHours.visitor,(v.openHours||{}).visitor||{});
+  out.openHours.member=Object.assign(d.openHours.member,(v.openHours||{}).member||{});
+  out.payment=Object.assign(d.payment,v.payment||{});
+  out.calendar=Object.assign(d.calendar,v.calendar||{});
+  // Firebase 不存 null 欄位：openHours 缺的星期補 null（=不開放）
+  for(const r of ['visitor','member'])for(const k of DAY_KEYS)if(!(k in out.openHours[r]))out.openHours[r][k]=null;
+  return out;
+}
+let _adminAttached=false;
+function attachAdmin(){
+  if(_adminAttached||MOCK)return;_adminAttached=true;
+  _db.ref(`${ROOT}/bookings`).on('value',s=>{S.admin.bookings=s.val()||{};render();});
+  _db.ref(`${ROOT}/members`).on('value',s=>{S.admin.members=s.val()||{};render();});
+  _db.ref(`${ROOT}/memberGrants`).on('value',s=>{S.admin.grants=s.val()||{};render();});
+  _db.ref(`${ROOT}/meta`).on('value',s=>{S.admin.meta=s.val()||{};render();});
+  ensureSettings();
+}
+async function ensureSettings(){ // 首次使用：settings 不存在時由管理員寫入預設值
+  const v=await dbOnce('settings').catch(()=>undefined);
+  if(v===null){
+    await dbUpdate({settings:DEFAULT_SETTINGS}).catch(e=>console.warn('init settings:',e));
+    toast('已初始化系統設定（預設值），請至「設定」調整');
+  }
+}
+const newId=()=>MOCK?('bk'+Math.random().toString(36).slice(2,10)):_db.ref().push().key;
+
+// ═══════════ Mock 種子 ═══════════
+function seedMock(){
+  mockDB.settings=JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  mockDB.settings.payment.bankInfo='（範例）國泰世華 013・123-456-789012・戶名 WalkIn Studio';
+  S.settings=mockDB.settings;
+  mockDB.members={
+    M001:{name:'林小姐',phone:'0912345678',email:'lin@example.com',quota:10,active:true,createdAt:Date.now()},
+    M002:{name:'張先生',phone:'0987654321',email:'chang@example.com',quota:8,active:true,createdAt:Date.now()}
+  };
+  mockDB.membersPublic={M001:{name:'林小姐',quota:10,active:true},M002:{name:'張先生',quota:8,active:true}};
+  mockDB.memberIndex={'0912345678':'M001','0987654321':'M002'};
+  const D=n=>fmtD(addD(today,n));
+  function nextWD(n){let d=new Date(today),c=0;while(c<n){d=addD(d,1);if(d.getDay()>=1&&d.getDay()<=5)c++;}return fmtD(d);}
+  function nextSat(){let d=new Date(today);do{d=addD(d,1);}while(d.getDay()!==6);return fmtD(d);}
+  let i=0;
+  const put=(date,s,e,kind,status,name,extra)=>{
+    const id='seed'+(++i);
+    mockDB.bookings[id]=Object.assign({date,s,e,kind,status,name:name||'',phone:'',email:'',note:'',payMethod:'hours',amount:0,payLast5:'',createdAt:Date.now()-i*1000},extra||{});
+    if(status!=='rejected'&&status!=='cancelled'){
+      (mockDB.schedule[date]=mockDB.schedule[date]||{})[id]={s,e,st:status,k:kind};
+    }
+    const b=mockDB.bookings[id];
+    if(b.memberCode){
+      const ym=date.slice(0,7);
+      ((mockDB.memberBookings[b.memberCode]=mockDB.memberBookings[b.memberCode]||{})[ym]=mockDB.memberBookings[b.memberCode][ym]||{})[id]={date,s,e,st:status,pay:b.payMethod==='transfer'?'t':'h',c:b.createdAt};
+    }
+    return id;
+  };
+  put(nextWD(1),M(14),M(16),'v','confirmed','王小明',{phone:'0955000111',payMethod:'transfer',amount:700,payLast5:'88012'});
+  (mockDB.schedule[nextWD(1)]=mockDB.schedule[nextWD(1)]||{})['cal_demo1']={s:M(10),e:M(11),st:'confirmed',k:'cal'};
+  put(nextWD(2),M(10),M(12)+30,'m','confirmed','林小姐',{memberCode:'M001'});
+  put(nextWD(3),M(15),M(17),'v','pending','陳先生',{phone:'0933222111',email:'chen@example.com',note:'讀書會，約 6 人',payMethod:'transfer',amount:700,payLast5:'54321'});
+  (mockDB.schedule[nextWD(4)]=mockDB.schedule[nextWD(4)]||{})['cal_demo2']={s:M(13),e:M(15),st:'confirmed',k:'cal'};
+  put(nextSat(),M(18),M(20),'m','confirmed','張先生',{memberCode:'M002'});
+  put(D(-3),M(10),M(13),'m','confirmed','林小姐',{memberCode:'M001'});
+  mockDB.memberGrants.M001={g1:{h:5,start:D(-10),exp:D(60),note:'加購',at:Date.now()}};
+}
+
+// ═══════════ 時數批次制 ═══════════
+function monthEndStr(y,mo){return `${y}-${pad(mo+1)}-${pad(new Date(y,mo+1,0).getDate())}`;}
+function memberDataFor(code){ // {quota, grants:{gid:{...}}, uses:[{date,h,c}]}
+  let quota=0,grants={},uses=[];
+  if(S.adminOn&&S.admin.members[code]){
+    quota=S.admin.members[code].quota||0;
+    grants=(S.admin.grants||{})[code]||{};
+    uses=Object.values(S.admin.bookings)
+      .filter(b=>b.memberCode===code&&b.payMethod!=='transfer'&&(b.status==='confirmed'||b.status==='pending'))
+      .map(b=>({date:b.date,h:(b.e-b.s)/60,c:b.createdAt||0}));
+  }else if(S.memberCode===code&&S.memberPub){
+    quota=S.memberPub.quota||0;
+    grants=S.memberGrantsData||{};
+    for(const ym of Object.keys(S.memberBk||{}))
+      for(const b of Object.values(S.memberBk[ym]))
+        if(b.pay!=='t'&&(b.st==='confirmed'||b.st==='pending'))uses.push({date:b.date,h:(b.e-b.s)/60,c:b.c||0});
+  }
+  uses.sort((a,b)=>a.c-b.c);
+  return {quota,grants,uses};
+}
+function grantAlloc(code){
+  const {quota,grants,uses}=memberDataFor(code);
+  const list=[];
+  for(let k=0;k<2;k++){ // 本月與下月的自動額度
+    const d=new Date(today.getFullYear(),today.getMonth()+k,1);
+    if(quota>0)list.push({id:'auto-'+fmtD(d).slice(0,7),h:quota,start:fmtD(d),
+      exp:monthEndStr(d.getFullYear(),d.getMonth()),note:`${d.getMonth()+1}月額度`,auto:true});
+  }
+  for(const[gid,g]of Object.entries(grants))list.push({id:gid,...g});
+  list.sort((a,b)=>a.exp.localeCompare(b.exp));
+  const out=list.map(g=>({...g,remain:g.h}));
+  for(const u of uses){
+    let need=u.h;
+    for(const g of out){
+      if(g.start>u.date||g.exp<u.date)continue;
+      const take=Math.min(need,g.remain);g.remain-=take;need-=take;
+      if(need<=0)break;
+    }
+  }
+  return out;
+}
+function availForDate(code,date){return grantAlloc(code).filter(g=>g.start<=date&&date<=g.exp).reduce((a,g)=>a+g.remain,0);}
+function balanceNow(code){
+  const t=fmtD(today);
+  const items=grantAlloc(code).filter(g=>g.start<=t&&g.exp>=t);
+  return {items,total:items.reduce((a,g)=>a+g.remain,0)};
+}
+
+// ═══════════ 時段狀態 ═══════════
+function hoursOf(role,dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  return S.settings.openHours[role][DAY_KEYS[d.getDay()]];
+}
+function schedOn(dateStr){return Object.entries(S.schedule[dateStr]||{}).map(([id,v])=>({id,...v}));}
+function slotState(dateStr,m,role){
+  const slot=S.settings.slotMinutes;
+  const d=new Date(dateStr+'T00:00:00');
+  const slotEnd=new Date(d); slotEnd.setMinutes(m+slot);
+  if(slotEnd<=new Date()) return {st:'past'};
+  const win=addD(today,S.settings.bookingWindowDays);
+  if(d>win) return {st:'closed'};
+  for(const b of schedOn(dateStr)){
+    const hit=(m>=b.s&&m<b.e)||(m<b.s&&m+slot>b.s);
+    if(hit){
+      if(b.k==='cal')return {st:'cal',b};
+      return {st:b.st==='pending'?'pending':'booked',b};
+    }
+  }
+  const oh=hoursOf(role,dateStr);
+  if(!oh||m<oh[0]*60||m+slot>oh[1]*60) return {st:'closed'};
+  return {st:'free'};
+}
+
+// ═══════════ 導覽 ═══════════
+function switchRole(r){S.role=r;render();}
+function shiftWeek(n){S.weekStart=addD(S.weekStart,n*7);render();}
+function render(){
+  document.getElementById('hd-room').textContent=S.settings.roomName;
+  ['visitor','member','admin'].forEach(r=>document.getElementById('nav-'+r).classList.toggle('on',S.role===r));
+  const v=document.getElementById('view');
+  if(!S.settingsLoaded){v.innerHTML='<div class="card"><p class="hint">載入中…</p></div>';return;}
+  if(S.role==='visitor')v.innerHTML=viewVisitor();
+  else if(S.role==='member')v.innerHTML=viewMember();
+  else v.innerHTML=viewAdmin();
+  if(S.role==='admin'&&S.adminOn&&S.aTab==='settings')updateEventPreview();
+}
+let _rz;window.addEventListener('resize',()=>{clearTimeout(_rz);_rz=setTimeout(render,150);});
+
+// ═══════════ 時段表（桌機週檢視 / 手機單日檢視） ═══════════
+const isMobile=()=>window.innerWidth<=640;
+function timeRange(){
+  const oh=S.settings.openHours;
+  let minH=24,maxH=0;
+  for(const r of ['visitor','member'])for(const k of DAY_KEYS){const x=oh[r][k];if(x){minH=Math.min(minH,x[0]);maxH=Math.max(maxH,x[1]);}}
+  if(minH>=maxH){minH=9;maxH=18;}
+  return [minH*60,maxH*60];
+}
+const legendHTML=`<div class="legend">
+  <span><i class="dot" style="background:#fff;border:1px solid var(--line)"></i>可預約</span>
+  <span><i class="dot" style="background:var(--bad-soft)"></i>已預約</span>
+  <span><i class="dot" style="background:var(--warn-soft)"></i>審核中</span>
+  <span><i class="dot" style="background:var(--cal-soft)"></i>日曆占用</span>
+  <span><i class="dot" style="background:var(--closed)"></i>未開放</span>
+</div>`;
+function scheduleHTML(role){return isMobile()?dayViewHTML(role):gridHTML(role);}
+function gridHTML(role){
+  const slot=S.settings.slotMinutes;
+  const [minM,maxM]=timeRange();
+  const days=[...Array(7)].map((_,i)=>addD(S.weekStart,i));
+  let h=`<div class="week-nav">
+    <button onclick="shiftWeek(-1)">‹ 上週</button>
+    <span class="wk-label">${fmtD(days[0]).slice(5).replace('-','/')} – ${fmtD(days[6]).slice(5).replace('-','/')}</span>
+    <button onclick="shiftWeek(1)">下週 ›</button>
+    <button onclick="S.weekStart=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;})();render()">回本週</button>
+    ${legendHTML}</div>`;
+  h+=`<div class="grid-wrap"><table class="grid ${slot===30?'grid-30':''}"><tr><th></th>`;
+  for(const d of days){
+    const isToday=fmtD(d)===fmtD(today);
+    h+=`<th class="${isToday?'today':''}">週${DAY_ZH[d.getDay()]}<span class="d-num">${d.getMonth()+1}/${d.getDate()}</span></th>`;
+  }
+  h+='</tr>';
+  for(let m=minM;m<maxM;m+=slot){
+    const hourRow=m%60===0;
+    h+=`<tr class="${hourRow?'hr-row':''}"><td class="time">${hourRow||slot===60?fmtT(m):''}</td>`;
+    for(const d of days){
+      const ds=fmtD(d), st=slotState(ds,m,role);
+      if(st.st==='free') h+=`<td class="slot-free" onclick="pickSlot('${ds}',${m},'${role}')">${fmtT(m)}</td>`;
+      else if(st.st==='booked') h+=`<td class="slot-booked">已預約</td>`;
+      else if(st.st==='pending') h+=`<td class="slot-pending">審核中</td>`;
+      else if(st.st==='cal') h+=`<td class="slot-cal">占用</td>`;
+      else if(st.st==='past') h+=`<td class="slot-past"></td>`;
+      else h+=`<td class="slot-closed"></td>`;
+    }
+    h+='</tr>';
+  }
+  h+='</table></div>';
+  return h;
+}
+function pickDay(ds){S.selDay=ds;render();}
+function dayViewHTML(role){
+  const slot=S.settings.slotMinutes;
+  const [minM,maxM]=timeRange();
+  const days=[...Array(7)].map((_,i)=>addD(S.weekStart,i));
+  if(!days.some(d=>fmtD(d)===S.selDay))S.selDay=fmtD(days[0]);
+  let h=`<div class="week-nav">
+    <button onclick="shiftWeek(-1)">‹</button>
+    <span class="wk-label">${fmtD(days[0]).slice(5).replace('-','/')} – ${fmtD(days[6]).slice(5).replace('-','/')}</span>
+    <button onclick="shiftWeek(1)">›</button>
+    <button onclick="S.weekStart=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;})();S.selDay=fmtD(today);render()">今天</button>
+  </div>
+  <div class="day-strip">${days.map(d=>{const ds=fmtD(d);
+    return `<button class="day-chip ${ds===S.selDay?'on':''} ${ds===fmtD(today)?'is-today':''}" onclick="pickDay('${ds}')">
+      <span>週${DAY_ZH[d.getDay()]}</span><b>${d.getDate()}</b></button>`;}).join('')}</div>`;
+  h+='<div class="day-list">';
+  let anyOpen=false;
+  for(let m=minM;m<maxM;m+=slot){
+    const st=slotState(S.selDay,m,role);
+    if(st.st==='closed'||st.st==='past')continue;
+    anyOpen=true;
+    const t=`${fmtT(m)}–${fmtT(m+slot)}`;
+    if(st.st==='free') h+=`<button class="day-slot free" onclick="pickSlot('${S.selDay}',${m},'${role}')"><span>${t}</span><b>預約</b></button>`;
+    else if(st.st==='booked') h+=`<div class="day-slot booked"><span>${t}</span><b>已預約</b></div>`;
+    else if(st.st==='pending') h+=`<div class="day-slot pend"><span>${t}</span><b>審核中</b></div>`;
+    else h+=`<div class="day-slot cal"><span>${t}</span><b>占用</b></div>`;
+  }
+  if(!anyOpen)h+='<p class="hint" style="padding:16px;text-align:center">本日未開放預約</p>';
+  h+='</div>';
+  return h;
+}
+
+// ═══════════ 訪客視圖 ═══════════
+function viewVisitor(){
+  return `
+  <div class="notice">📣 ${esc(S.settings.notice)}<br><span class="hint">費用 NT$${S.settings.payment.hourlyRate}/小時，請先匯款並於表單填寫帳號末五碼，管理員核對後即完成預約。</span></div>
+  ${scheduleHTML('visitor')}
+  <div class="card" style="margin-top:16px"><h2>我的預約查詢</h2>
+    <p class="hint" style="margin-bottom:6px">您在此裝置送出的預約會列在這裡（狀態即時更新）。</p>
+    <div id="my-visitor-list">${myVisitorListHTML()}</div>
+  </div>`;
+}
+function visitorStatus(rec){ // 由公開 schedule 推狀態
+  const ent=(S.schedule[rec.date]||{})[rec.id];
+  if(ent)return ent.st==='pending'?'pending':'confirmed';
+  const past=new Date(rec.date+'T00:00:00')<today;
+  return past?'done':'gone'; // gone=已被取消或未通過
+}
+function myVisitorListHTML(){
+  const mine=[...S.myVisitor].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  if(!mine.length)return '<p class="hint">尚無預約紀錄</p>';
+  return mine.map(rec=>{
+    const st=visitorStatus(rec);
+    const chipH=st==='pending'?chip('pending'):st==='confirmed'?chip('confirmed'):st==='done'?chip('confirmed'):'<span class="chip chip-cancelled">已取消／未通過</span>';
+    return `<div class="list-item">
+    <div class="list-main"><b>${rec.date}（週${DAY_ZH[new Date(rec.date+'T00:00:00').getDay()]}）${fmtT(rec.s)}–${fmtT(rec.e)}</b>
+    <div class="list-sub">${esc(rec.name)}｜NT$${rec.amount}・末五碼 ${esc(rec.payLast5||'—')}</div></div>
+    ${chipH}
+    ${st==='pending'?`<button class="btn btn-bad btn-sm" onclick="cancelVisitor('${rec.id}')">取消</button>`:''}
+  </div>`;}).join('');
+}
+async function cancelVisitor(id){
+  const rec=S.myVisitor.find(r=>r.id===id);if(!rec)return;
+  try{
+    await dbUpdate({[`bookings/${id}`]:null,[`schedule/${rec.date}/${id}`]:null});
+    S.myVisitor=S.myVisitor.filter(r=>r.id!==id);lsSet('mr.visitor',S.myVisitor);
+    render();toast('已取消預約');
+  }catch(e){toast('取消失敗：'+(e.message||e));}
+}
+function chip(st){
+  const m={pending:['審核中','chip-pending'],confirmed:['已確認','chip-confirmed'],rejected:['已婉拒','chip-rejected'],cancelled:['已取消','chip-cancelled']};
+  const x=m[st]||[st,''];return `<span class="chip ${x[1]}">${x[0]}</span>`;
+}
+
+// ═══════════ 會員視圖 ═══════════
+function viewMember(){
+  if(!S.memberCode){
+    return `<div class="card" style="max-width:430px;margin:30px auto">
+      <h2>會員查詢</h2>
+      <p class="hint" style="margin-bottom:12px">輸入手機號碼即可查詢額度並預約。</p>
+      <div class="f-row"><input id="mem-login" type="tel" inputmode="numeric" placeholder="手機號碼" value="${esc(lsGet('mr.phone','')||'')}" onkeydown="if(event.key==='Enter')memberLogin()"></div>
+      <button class="btn btn-pri" style="width:100%" onclick="memberLogin()">查詢</button>
+    </div>`;
+  }
+  const m=S.memberPub||{name:'',quota:0}, bal=balanceNow(S.memberCode);
+  const myBk=[];
+  for(const ym of Object.keys(S.memberBk||{}))for(const[id,b]of Object.entries(S.memberBk[ym]))myBk.push({id,ym,...b});
+  myBk.sort((a,b)=>b.date.localeCompare(a.date)||b.s-a.s);
+  return `
+  <div class="card"><div class="mem-card">
+    <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div>
+      <div class="hint">目前可用時數</div></div>
+    <div class="mem-quota">
+      <span class="mem-num">${fmtH(bal.total*60)}</span><span class="hint"> 小時</span>
+      <div style="margin-top:4px">${bal.items.map(g=>`<div class="hint">・${esc(g.note||'加值')}：剩 ${fmtH(g.remain*60)} / ${g.h} 小時（${g.exp.slice(5).replace('-','/')} 到期）</div>`).join('')||'<div class="hint">目前沒有可用時數</div>'}</div>
+    </div>
+    <button class="btn btn-sec btn-sm" onclick="memberLogout()">登出</button>
+  </div></div>
+  <div class="notice"><b>使用時數預約免審核</b>，系統會在 5 分鐘內自動確認；時數不足時改以匯款（NT$${S.settings.payment.hourlyRate}/小時）並填末五碼，由管理員核對。</div>
+  ${scheduleHTML('member')}
+  <div class="card" style="margin-top:16px"><h2>我的預約</h2>
+    ${myBk.length?myBk.slice(0,10).map(b=>`<div class="list-item">
+      <div class="list-main"><b>${b.date} ${fmtT(b.s)}–${fmtT(b.e)}</b><div class="list-sub">${fmtDur(b.e-b.s)}｜${b.pay==='t'?'匯款':'使用時數'}</div></div>
+      ${chip(b.st)}
+      ${b.st==='pending'?`<button class="btn btn-bad btn-sm" onclick="cancelMemberBk('${b.id}','${b.date}','${b.ym}')">取消</button>`:''}
+    </div>`).join(''):'<p class="hint">尚無預約紀錄</p>'}
+  </div>`;
+}
+async function memberLogin(){
+  const raw=document.getElementById('mem-login').value.trim();
+  const q=digits(raw);
+  if(!q)return toast('請輸入手機號碼');
+  try{
+    const code=await dbOnce(`memberIndex/${q}`);
+    if(!code)return toast('查無此會員，請確認手機號碼');
+    const pub=await dbOnce(`membersPublic/${code}`);
+    if(!pub)return toast('查無此會員資料');
+    if(pub.active===false)return toast('此會員已停用，請聯絡工作室');
+    S.memberCode=code;S.memberPub=pub;
+    lsSet('mr.phone',raw);
+    if(MOCK){syncMockToState();}
+    else{
+      _db.ref(`${ROOT}/membersPublic/${code}`).on('value',s=>{S.memberPub=s.val();render();});
+      _db.ref(`${ROOT}/memberGrants/${code}`).on('value',s=>{S.memberGrantsData=s.val()||{};render();});
+      _db.ref(`${ROOT}/memberBookings/${code}`).on('value',s=>{S.memberBk=s.val()||{};render();});
+    }
+    render();
+  }catch(e){toast('查詢失敗：'+(e.message||e));}
+}
+function memberLogout(){
+  if(!MOCK&&S.memberCode){
+    _db.ref(`${ROOT}/membersPublic/${S.memberCode}`).off();
+    _db.ref(`${ROOT}/memberGrants/${S.memberCode}`).off();
+    _db.ref(`${ROOT}/memberBookings/${S.memberCode}`).off();
+  }
+  S.memberCode=null;S.memberPub=null;S.memberGrantsData={};S.memberBk={};render();
+}
+async function cancelMemberBk(id,date,ym){
+  try{
+    await dbUpdate({
+      [`bookings/${id}`]:null,
+      [`schedule/${date}/${id}`]:null,
+      [`memberBookings/${S.memberCode}/${ym}/${id}`]:null
+    });
+    toast('已取消預約');
+  }catch(e){toast('取消失敗：'+(e.message||e));}
+}
+
+// ═══════════ 預約流程 ═══════════
+function pickSlot(dateStr,m0,role){
+  if(role==='member'&&!S.memberCode)return;
+  const slot=S.settings.slotMinutes;
+  S.pick={date:dateStr,m:m0,role};
+  document.getElementById('bk-title').textContent=(role==='member'?'會員預約':'訪客預約申請');
+  document.getElementById('bk-when').textContent=`${dateStr}（週${DAY_ZH[new Date(dateStr+'T00:00:00').getDay()]}）${fmtT(m0)} 起`;
+  const durSel=document.getElementById('bk-dur');durSel.innerHTML='';
+  let maxSlots=0;
+  for(let i=0;i<240/slot;i++){if(slotState(dateStr,m0+i*slot,role).st==='free')maxSlots++;else break;}
+  for(let i=1;i<=maxSlots;i++){const d=i*slot;
+    durSel.innerHTML+=`<option value="${d}">${fmtDur(d)}（${fmtT(m0)}–${fmtT(m0+d)}）</option>`;}
+  document.getElementById('bk-visitor-fields').style.display=role==='member'?'none':'block';
+  ['bk-name','bk-phone','bk-email','bk-note'].forEach(id=>document.getElementById(id).value='');
+  S.pick.payMethod=null;S.pick.last5='';
+  updatePayUI();
+  document.getElementById('bk-submit').disabled=false;
+  openModal('modal-book');
+}
+function setPayM(v){S.pick.payMethod=v;updatePayUI();}
+function updatePayUI(){
+  const p=S.pick;if(!p)return;
+  const dur=+document.getElementById('bk-dur').value||0;
+  const hrs=dur/60, rate=S.settings.payment.hourlyRate;
+  const amt=Math.round(hrs*rate);
+  let leftH=0, canHours=false;
+  if(p.role==='member'){
+    leftH=availForDate(S.memberCode,p.date);
+    canHours=leftH>=hrs&&hrs>0;
+  }
+  if(!canHours)p.payMethod='transfer';
+  else if(!p.payMethod)p.payMethod='hours';
+  const method=canHours?p.payMethod:'transfer';
+  let h='<label>付款方式</label>';
+  if(p.role==='member'){
+    if(canHours){
+      h+=`<label class="pay-opt"><input type="radio" name="paym" ${method==='hours'?'checked':''} onchange="setPayM('hours')"><span class="pay-txt">⏱ 使用會員時數（該日可用 ${fmtH(leftH*60)} 小時，此次扣 ${fmtH(dur)}）<span class="chip chip-confirmed" style="margin-left:4px">免審核</span></span></label>
+          <label class="pay-opt"><input type="radio" name="paym" ${method==='transfer'?'checked':''} onchange="setPayM('transfer')"><span class="pay-txt">💰 匯款付款 NT$${amt}</span></label>`;
+    }else{
+      h+=`<div class="pay-warn">該預約日可用時數不足（剩 ${fmtH(Math.max(0,leftH)*60)} 小時），此預約需以匯款付款。</div>`;
+    }
+  }
+  if(method==='transfer'){
+    h+=`<div class="pay-box">
+      金額 <b>NT$${amt}</b><span class="hint">（${fmtDur(dur)} × NT$${rate}/小時）</span><br>
+      <span class="hint">匯款帳戶：${esc(S.settings.payment.bankInfo)}</span>
+      <div style="margin-top:8px"><label style="font-size:13px;color:var(--sub)">匯款帳號末五碼 *</label>
+      <input id="bk-last5" maxlength="5" inputmode="numeric" placeholder="請先完成匯款後填寫" value="${esc(p.last5||'')}" oninput="S.pick.last5=this.value" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px"></div>
+      <p class="hint" style="margin-top:6px">送出後由管理員核對款項，確認後即完成預約。</p>
+    </div>`;
+  }
+  document.getElementById('bk-pay').innerHTML=h;
+}
+async function submitBooking(){
+  const p=S.pick;if(!p)return;
+  const slot=S.settings.slotMinutes;
+  const dur=+document.getElementById('bk-dur').value;
+  if(!dur)return toast('此時段目前無法預約');
+  const note=document.getElementById('bk-note').value.trim();
+  for(let i=0;i<dur/slot;i++)if(slotState(p.date,p.m+i*slot,p.role).st!=='free')return toast('時段已被搶先預約，請重新選擇');
+  const method=p.role==='member'?(p.payMethod||'transfer'):'transfer';
+  const amt=Math.round(dur/60*S.settings.payment.hourlyRate);
+  let payLast5='';
+  if(method==='transfer'){
+    payLast5=(document.getElementById('bk-last5')?.value||'').trim();
+    if(!/^\d{5}$/.test(payLast5))return toast('請填寫匯款帳號末五碼（5 位數字）');
+  }
+  const btn=document.getElementById('bk-submit');btn.disabled=true;
+  try{
+    const id=newId();
+    const ym=p.date.slice(0,7);
+    if(p.role==='member'){
+      if(method==='hours'){
+        const left=availForDate(S.memberCode,p.date);
+        if(dur/60>left){btn.disabled=false;return toast(`該日可用時數不足（剩 ${fmtH(Math.max(0,left)*60)} 小時），請改用匯款`);}
+      }
+      const m=S.memberPub;
+      const bk={date:p.date,s:p.m,e:p.m+dur,kind:'m',status:'pending',name:m.name||'',phone:'',email:'',note,
+        memberCode:S.memberCode,payMethod:method,amount:method==='transfer'?amt:0,payLast5,createdAt:Date.now()};
+      await dbUpdate({
+        [`bookings/${id}`]:bk,
+        [`schedule/${p.date}/${id}`]:{s:bk.s,e:bk.e,st:'pending',k:'m'},
+        [`memberBookings/${S.memberCode}/${ym}/${id}`]:{date:p.date,s:bk.s,e:bk.e,st:'pending',pay:method==='transfer'?'t':'h',c:bk.createdAt}
+      });
+      closeModal('modal-book');
+      if(method==='hours'){
+        toast('預約已送出，系統將於 5 分鐘內自動確認');
+        if(MOCK)setTimeout(()=>{dbUpdate({[`bookings/${id}/status`]:'confirmed',[`schedule/${p.date}/${id}/st`]:'confirmed',[`memberBookings/${S.memberCode}/${ym}/${id}/st`]:'confirmed'});toast('✓ 預約已自動確認（模擬）');},3000);
+      }else toast('預約已送出！管理員核對匯款後即完成預約');
+    }else{
+      const name=document.getElementById('bk-name').value.trim();
+      const phone=document.getElementById('bk-phone').value.trim();
+      if(!name||!phone){btn.disabled=false;return toast('請填寫姓名與電話');}
+      const email=document.getElementById('bk-email').value.trim();
+      const bk={date:p.date,s:p.m,e:p.m+dur,kind:'v',status:'pending',name,phone,email,note,
+        payMethod:'transfer',amount:amt,payLast5,createdAt:Date.now()};
+      await dbUpdate({
+        [`bookings/${id}`]:bk,
+        [`schedule/${p.date}/${id}`]:{s:bk.s,e:bk.e,st:'pending',k:'v'}
+      });
+      S.myVisitor.push({id,date:p.date,s:bk.s,e:bk.e,name,amount:amt,payLast5,c:Date.now()});
+      lsSet('mr.visitor',S.myVisitor);
+      closeModal('modal-book');
+      toast('申請已送出！管理員核對匯款後將通知您');
+    }
+    render();
+  }catch(e){
+    btn.disabled=false;
+    toast('送出失敗：'+(e.message||e));
+  }
+}
+
+// ═══════════ 管理後台 ═══════════
+function viewAdmin(){
+  if(!S.adminOn){
+    return `<div class="card" style="max-width:430px;margin:30px auto">
+      <h2>管理員登入</h2>
+      ${MOCK?`<button class="btn btn-pri" style="width:100%" onclick="S.adminOn=true;render()">模擬登入</button>`:`
+      <div class="f-row"><input id="ad-email" type="email" placeholder="Email" value="${ADMIN_EMAIL}"></div>
+      <div class="f-row"><input id="ad-pw" type="password" placeholder="密碼" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+      <button class="btn btn-pri" style="width:100%" id="ad-login-btn" onclick="adminLogin()">登入</button>`}
+    </div>`;
+  }
+  const pendCount=Object.values(S.admin.bookings).filter(b=>b.status==='pending').length;
+  const tabs=[['pending',`待審核${pendCount?`<span class="badge">${pendCount}</span>`:''}`],['overview','預約總覽'],['members','會員管理'],['settings','設定']];
+  let h=`<div class="a-tabs">${tabs.map(([k,t])=>`<button class="${S.aTab===k?'on':''}" onclick="S.aTab='${k}';render()">${t}</button>`).join('')}
+    <button style="margin-left:auto" onclick="adminLogout()">登出</button></div>`;
+  if(S.aTab==='pending')h+=adminPending();
+  else if(S.aTab==='overview')h+=adminOverview();
+  else if(S.aTab==='members')h+=adminMembers();
+  else h+=adminSettings();
+  return h;
+}
+async function adminLogin(){
+  const email=document.getElementById('ad-email').value.trim();
+  const pw=document.getElementById('ad-pw').value;
+  if(!email||!pw)return toast('請輸入帳號密碼');
+  const btn=document.getElementById('ad-login-btn');btn.disabled=true;
+  try{await _auth.signInWithEmailAndPassword(email,pw);}
+  catch(e){btn.disabled=false;toast('登入失敗：'+(e.message||e));}
+}
+function adminLogout(){
+  if(MOCK){S.adminOn=false;render();return;}
+  _auth.signOut();
+}
+function adminPending(){
+  const list=Object.entries(S.admin.bookings).map(([id,b])=>({id,...b}))
+    .filter(b=>b.status==='pending').sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
+  return `<div class="card"><h2>待審核申請</h2>
+  <p class="hint" style="margin-bottom:8px">匯款預約需核對款項後核准；會員「使用時數」預約由系統於 5 分鐘內自動確認、不會停留在此。</p>
+  ${list.length?list.map(b=>`<div class="list-item">
+    <div class="list-main"><b>${b.date}（週${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）${fmtT(b.s)}–${fmtT(b.e)}</b> ${b.kind==='m'?'<span class="chip chip-m">會員</span>':'<span class="chip chip-v">訪客</span>'}
+      <div class="list-sub">${esc(b.name)}｜${esc(b.phone)}${b.email?'｜'+esc(b.email):''}${b.note?'｜'+esc(b.note):''}</div>
+      <div class="list-sub">${b.payMethod==='transfer'?`💰 匯款 <b>NT$${b.amount}</b>・帳號末五碼 <b style="color:var(--brand)">${esc(b.payLast5||'—')}</b>`:'⏱ 使用會員時數（等待系統自動確認）'}</div></div>
+    <button class="btn btn-ok btn-sm" onclick="approveBooking('${b.id}')">核准</button>
+    <button class="btn btn-bad btn-sm" onclick="rejectBooking('${b.id}')">婉拒</button>
+  </div>`).join(''):'<p class="hint">目前沒有待審核的申請 🎉</p>'}</div>`;
+}
+async function approveBooking(id){
+  const b=S.admin.bookings[id];if(!b)return;
+  try{
+    const upd={[`bookings/${id}/status`]:'confirmed',[`schedule/${b.date}/${id}/st`]:'confirmed'};
+    if(b.memberCode)upd[`memberBookings/${b.memberCode}/${b.date.slice(0,7)}/${id}/st`]='confirmed';
+    await dbUpdate(upd);
+    toast(`✓ 已核准，同步程式將建立日曆事件「${renderEventText(S.settings.calendar.eventTitle,b)}」並寄送通知`);
+  }catch(e){toast('操作失敗：'+(e.message||e));}
+}
+async function rejectBooking(id){
+  const b=S.admin.bookings[id];if(!b)return;
+  const r=prompt('婉拒原因（將寄送給申請人，可留空）：');
+  if(r===null)return;
+  try{
+    const upd={
+      [`bookings/${id}/status`]:'rejected',
+      [`bookings/${id}/rejectReason`]:r||'',
+      [`schedule/${b.date}/${id}`]:null
+    };
+    if(b.memberCode)upd[`memberBookings/${b.memberCode}/${b.date.slice(0,7)}/${id}/st`]='rejected';
+    await dbUpdate(upd);
+    toast('已婉拒此申請');
+  }catch(e){toast('操作失敗：'+(e.message||e));}
+}
+async function adminCancelBooking(id){
+  const b=S.admin.bookings[id];if(!b)return;
+  if(!confirm(`確定取消 ${b.date} ${fmtT(b.s)}–${fmtT(b.e)}（${b.name}）的預約？`))return;
+  try{
+    const upd={
+      [`bookings/${id}/status`]:'cancelled',
+      [`schedule/${b.date}/${id}`]:null
+    };
+    if(b.memberCode)upd[`memberBookings/${b.memberCode}/${b.date.slice(0,7)}/${id}/st`]='cancelled';
+    await dbUpdate(upd);
+    toast('已取消，同步程式將移除日曆事件');
+  }catch(e){toast('操作失敗：'+(e.message||e));}
+}
+function adminOverview(){
+  const rows=[];
+  const tStr=fmtD(today);
+  for(const[id,b]of Object.entries(S.admin.bookings))
+    if(b.date>=tStr&&(b.status==='confirmed'||b.status==='pending'))rows.push({id,...b});
+  for(const[date,ents]of Object.entries(S.schedule))
+    if(date>=tStr)for(const[id,v]of Object.entries(ents))
+      if(v.k==='cal')rows.push({id,date,s:v.s,e:v.e,kind:'cal',status:'confirmed',name:''});
+  rows.sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
+  const meta=S.admin.meta||{};
+  return `<div class="card"><h2>近期預約與占用</h2>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th>日期</th><th>時段</th><th>類型</th><th>對象</th><th>付款</th><th>狀態</th><th></th></tr>
+  ${rows.map(b=>`<tr><td>${b.date}（${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）</td><td>${fmtT(b.s)}–${fmtT(b.e)}</td>
+    <td>${b.kind==='m'?'<span class="chip chip-m">會員</span>':b.kind==='v'?'<span class="chip chip-v">訪客</span>':'<span class="chip chip-cancelled">日曆</span>'}</td>
+    <td>${b.kind==='cal'?'Google 日曆事件':esc(b.name)+(b.memberCode?`（${esc(b.memberCode)}）`:'')}</td>
+    <td class="hint">${b.kind==='cal'?'—':b.payMethod==='transfer'?`NT$${b.amount}・末五碼 ${esc(b.payLast5||'—')}`:'時數'}</td>
+    <td>${b.kind==='cal'?'—':chip(b.status)}</td>
+    <td>${b.kind==='cal'?'':`<button class="btn btn-bad btn-sm" onclick="adminCancelBooking('${b.id}')">取消</button>`}</td></tr>`).join('')}
+  </table></div>
+  <p class="hint" style="margin-top:10px">「日曆」列＝你在 Google 日曆手動建立的事件（每 5 分鐘同步、自動擋掉時段）。上次同步：${meta.lastSyncAt?new Date(meta.lastSyncAt).toLocaleString('zh-TW'):'尚未同步'}${meta.lastError?`　<span style="color:var(--bad)">⚠ ${esc(String(meta.lastError).slice(0,120))}</span>`:''}</p></div>`;
+}
+function adminMembers(){
+  return `<div class="card"><h2>會員管理 <button class="btn btn-pri btn-sm" style="float:right" onclick="openMemModal(null)">＋ 新增會員</button></h2>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
+  ${Object.entries(S.admin.members).map(([c,m])=>`<tr><td><b>${esc(c)}</b></td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
+    <td>${m.quota||0}h</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
+    <td>${m.active!==false?'<span class="chip chip-confirmed">啟用</span>':'<span class="chip chip-cancelled">停用</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">發放時數</button>
+      <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
+  </table></div>
+  <p class="hint" style="margin-top:10px">每月額度於 1 號自動生效、當月月底到期；「發放時數」可手動加開一批自訂到期日的時數。扣抵時自動先用快到期的批次。會員以手機號碼查詢登入。</p></div>`;
+}
+function openMemModal(code){
+  S.editMemCode=code;
+  document.getElementById('mem-modal-title').textContent=code?'編輯會員 '+code:'新增會員';
+  const m=code?S.admin.members[code]:{name:'',phone:'',email:'',quota:10,active:true};
+  document.getElementById('me-code').value=code||'';
+  document.getElementById('me-code').disabled=!!code;
+  document.getElementById('me-name').value=m.name||'';
+  document.getElementById('me-phone').value=m.phone||'';
+  document.getElementById('me-email').value=m.email||'';
+  document.getElementById('me-quota').value=m.quota||0;
+  document.getElementById('me-active').checked=m.active!==false;
+  openModal('modal-mem');
+}
+async function saveMember(){
+  const code=(S.editMemCode||document.getElementById('me-code').value.trim().toUpperCase());
+  const name=document.getElementById('me-name').value.trim();
+  const phone=document.getElementById('me-phone').value.trim();
+  if(!code||!name||!phone)return toast('請填寫編號、姓名與電話');
+  if(!/^[A-Za-z0-9_-]{1,12}$/.test(code))return toast('編號限英數字（至多 12 字）');
+  if(!S.editMemCode&&S.admin.members[code])return toast('此編號已存在');
+  const phoneKey=digits(phone);
+  if(!phoneKey)return toast('電話格式不正確');
+  // 手機不可與其他會員重複
+  for(const[c,m]of Object.entries(S.admin.members))
+    if(c!==code&&digits(m.phone)===phoneKey)return toast(`此手機已屬於會員 ${c}`);
+  const email=document.getElementById('me-email').value.trim();
+  const quota=Math.max(0,+document.getElementById('me-quota').value||0);
+  const active=document.getElementById('me-active').checked;
+  const old=S.editMemCode?S.admin.members[S.editMemCode]:null;
+  try{
+    const upd={
+      [`members/${code}`]:{name,phone,email,quota,active,createdAt:(old&&old.createdAt)||Date.now()},
+      [`membersPublic/${code}`]:{name,quota,active},
+      [`memberIndex/${phoneKey}`]:code
+    };
+    if(old&&digits(old.phone)&&digits(old.phone)!==phoneKey)upd[`memberIndex/${digits(old.phone)}`]=null;
+    await dbUpdate(upd);
+    closeModal('modal-mem');toast('會員已儲存');
+  }catch(e){toast('儲存失敗：'+(e.message||e));}
+}
+// ── 手動發放時數 ──
+function openGrantModal(code){
+  S.grantCode=code;
+  document.getElementById('grant-title').textContent=`發放時數 — ${(S.admin.members[code]||{}).name||code}`;
+  document.getElementById('gr-h').value=5;
+  document.getElementById('gr-exp').value=fmtD(addD(today,90));
+  document.getElementById('gr-note').value='';
+  renderGrantList();openModal('modal-grant');
+}
+function renderGrantList(){
+  const manual=grantAlloc(S.grantCode).filter(g=>!g.auto&&g.exp>=fmtD(today));
+  document.getElementById('gr-list').innerHTML=manual.length
+    ?'<label style="font-size:13px;color:var(--sub)">已發放（未到期）</label>'+manual.map(g=>`<div class="list-item">
+      <div class="list-main"><b>剩 ${fmtH(g.remain*60)} / ${g.h} 小時</b><div class="list-sub">至 ${g.exp}${g.note?'・'+esc(g.note):''}</div></div>
+      <button class="btn btn-bad btn-sm" onclick="delGrant('${g.id}')">刪除</button></div>`).join('')
+    :'<p class="hint">尚無手動發放紀錄</p>';
+}
+async function saveGrant(){
+  const h=+document.getElementById('gr-h').value;
+  const exp=document.getElementById('gr-exp').value;
+  if(!(h>0)||!exp)return toast('請填寫時數與使用期限');
+  if(exp<fmtD(today))return toast('使用期限不可早於今天');
+  const gid='g'+Date.now();
+  try{
+    await dbUpdate({[`memberGrants/${S.grantCode}/${gid}`]:{h,exp,start:fmtD(today),note:document.getElementById('gr-note').value.trim(),at:Date.now()}});
+    renderGrantList();
+    toast(`✓ 已發放 ${fmtH(h*60)} 小時（${exp} 前有效）`);
+  }catch(e){toast('發放失敗：'+(e.message||e));}
+}
+async function delGrant(id){
+  try{
+    await dbUpdate({[`memberGrants/${S.grantCode}/${id}`]:null});
+    renderGrantList();toast('已刪除該筆發放');
+  }catch(e){toast('刪除失敗：'+(e.message||e));}
+}
+// ── 設定 ──
+function renderEventText(tpl,b){
+  const typeZh=b.kind==='m'?'會員':b.kind==='v'?'訪客':'日曆';
+  return String(tpl||'')
+    .replace(/\{name\}/g,b.name||'')
+    .replace(/\{type\}/g,typeZh)
+    .replace(/\{phone\}/g,b.phone||'')
+    .replace(/\{code\}/g,b.memberCode||'')
+    .replace(/\{note\}/g,b.note||'')
+    .replace(/\{date\}/g,b.date||'')
+    .replace(/\{time\}/g,`${fmtT(b.s)}–${fmtT(b.e)}`);
+}
+function updateEventPreview(){
+  const sample={kind:'v',name:'王小明',phone:'0955000111',note:'讀書會',date:fmtD(today),s:M(14),e:M(16)};
+  const t=document.getElementById('set-ev-title'),d=document.getElementById('set-ev-desc'),p=document.getElementById('ev-preview');
+  if(t&&d&&p)p.innerHTML=`<b>${esc(renderEventText(t.value,sample))}</b><br>${esc(renderEventText(d.value,sample)).replace(/\n/g,'<br>')}`;
+}
+function adminSettings(){
+  const st=S.settings;
+  const hourOpts=sel=>[...Array(25)].map((_,i)=>`<option value="${i}" ${i===sel?'selected':''}>${pad(i)}:00</option>`).join('');
+  const ohEditor=role=>{
+    const oh=st.openHours[role];
+    return `<div class="oh-grid"><span class="oh-head"></span><span class="oh-head">開始</span><span class="oh-head">結束</span><span class="oh-head">開放</span>
+    ${['mon','tue','wed','thu','fri','sat','sun'].map(k=>{
+      const x=oh[k],on=!!x;
+      return `<span>週${DAY_ZH[DAY_KEYS.indexOf(k)]}</span>
+      <select id="oh-${role}-${k}-s" ${on?'':'disabled'}>${hourOpts(on?x[0]:10)}</select>
+      <select id="oh-${role}-${k}-e" ${on?'':'disabled'}>${hourOpts(on?x[1]:18)}</select>
+      <label><input type="checkbox" id="oh-${role}-${k}-on" ${on?'checked':''} onchange="document.getElementById('oh-${role}-${k}-s').disabled=!this.checked;document.getElementById('oh-${role}-${k}-e').disabled=!this.checked" style="width:auto"></label>`;
+    }).join('')}</div>`;
+  };
+  return `<div class="card"><h2>系統設定</h2>
+    <div class="f-row" style="max-width:400px"><label>會議室名稱</label><input id="set-room" value="${esc(st.roomName)}"></div>
+    <div class="f-row"><label>公告（顯示於訪客頁）</label><textarea id="set-notice">${esc(st.notice)}</textarea></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div class="f-row" style="width:160px"><label>可預約未來天數</label><input id="set-window" type="number" min="1" max="365" value="${st.bookingWindowDays}"></div>
+      <div class="f-row" style="width:160px"><label>時段單位</label><select id="set-slot">
+        <option value="30" ${st.slotMinutes===30?'selected':''}>30 分鐘</option>
+        <option value="60" ${st.slotMinutes===60?'selected':''}>1 小時</option>
+      </select></div>
+    </div>
+    <div class="sec-title">💰 收費與匯款</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div class="f-row" style="width:160px"><label>每小時費用（NT$）</label><input id="set-rate" type="number" min="0" value="${st.payment.hourlyRate}"></div>
+      <div class="f-row" style="flex:1;min-width:260px"><label>匯款帳戶資訊（顯示於預約表單）</label><input id="set-bank" value="${esc(st.payment.bankInfo)}"></div>
+    </div>
+    <div class="sec-title">📆 Google 日曆同步</div>
+    <div class="f-row"><label>同步日曆 ID</label><input id="set-cal-id" value="${esc(st.calendar.calendarId)}" placeholder="xxxx@group.calendar.google.com" style="font-family:monospace;font-size:13px"></div>
+    <div class="f-row"><label>Event 標題格式</label><input id="set-ev-title" value="${esc(st.calendar.eventTitle)}" oninput="updateEventPreview()"></div>
+    <div class="f-row"><label>Event 說明格式</label><textarea id="set-ev-desc" oninput="updateEventPreview()">${esc(st.calendar.eventDesc)}</textarea></div>
+    <p class="hint">可用變數：<code>{name}</code> 姓名、<code>{type}</code> 會員/訪客、<code>{phone}</code> 電話、<code>{code}</code> 會員編號、<code>{note}</code> 備註、<code>{date}</code> 日期、<code>{time}</code> 時段</p>
+    <div style="background:var(--brand-soft);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:14px">
+      <span class="hint">預覽（示範資料）：</span><div id="ev-preview" style="margin-top:4px"></div>
+    </div>
+    <div class="sec-title">🟣 訪客可預約時段</div>${ohEditor('visitor')}
+    <div class="sec-title">🔵 會員可預約時段</div>${ohEditor('member')}
+    <div style="margin-top:18px"><button class="btn btn-pri" onclick="saveSettings()">儲存設定</button></div>
+    <p class="hint" style="margin-top:10px">儲存後立即生效；日曆 ID 與 Event 格式由同步程式每次執行時讀取。</p></div>`;
+}
+async function saveSettings(){
+  const st=JSON.parse(JSON.stringify(S.settings));
+  st.roomName=document.getElementById('set-room').value.trim()||st.roomName;
+  st.notice=document.getElementById('set-notice').value.trim();
+  st.bookingWindowDays=+document.getElementById('set-window').value||30;
+  st.slotMinutes=+document.getElementById('set-slot').value===60?60:30;
+  st.payment.hourlyRate=Math.max(0,+document.getElementById('set-rate').value||0);
+  st.payment.bankInfo=document.getElementById('set-bank').value.trim();
+  st.calendar.calendarId=document.getElementById('set-cal-id').value.trim();
+  st.calendar.eventTitle=document.getElementById('set-ev-title').value;
+  st.calendar.eventDesc=document.getElementById('set-ev-desc').value;
+  for(const role of ['visitor','member']){
+    for(const k of ['mon','tue','wed','thu','fri','sat','sun']){
+      const on=document.getElementById(`oh-${role}-${k}-on`).checked;
+      if(!on){st.openHours[role][k]=null;continue;}
+      const s=+document.getElementById(`oh-${role}-${k}-s`).value;
+      const e=+document.getElementById(`oh-${role}-${k}-e`).value;
+      st.openHours[role][k]=e>s?[s,e]:null;
+    }
+  }
+  try{
+    await dbUpdate({settings:st});
+    S.settings=mergeSettings(st);
+    render();toast('✓ 設定已儲存並生效');
+  }catch(e){toast('儲存失敗：'+(e.message||e));}
+}
+
+dataInit();
+render();
+</script>
+</body>
+</html>

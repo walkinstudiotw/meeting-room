@@ -1,0 +1,78 @@
+{
+  "_說明": "把下方 meeting-room 區塊合併進 Firebase Console → Realtime Database → 規則 的既有 rules JSON（與 walkin-pm 節點並列，不要動其他節點）。ADMIN 判斷用 email；如要更嚴可再加 auth.uid 比對。",
+  "meeting-room": {
+    ".read": "auth != null && auth.token.email === 'walkinstudiotw@gmail.com'",
+    ".write": "auth != null && auth.token.email === 'walkinstudiotw@gmail.com'",
+    "settings": {
+      ".read": true
+    },
+    "schedule": {
+      ".read": true,
+      "$date": {
+        "$bid": {
+          ".write": "(!data.exists() && newData.child('st').val() === 'pending') || (!newData.exists() && data.child('st').val() === 'pending')",
+          ".validate": "$date.matches(/^2[0-9]{3}-[0-1][0-9]-[0-3][0-9]$/) && newData.hasChildren(['s','e','st','k']) && newData.child('s').isNumber() && newData.child('s').val() >= 0 && newData.child('e').isNumber() && newData.child('e').val() > newData.child('s').val() && newData.child('e').val() <= 1440 && (newData.child('st').val() === 'pending' || newData.child('st').val() === 'confirmed') && (newData.child('k').val() === 'm' || newData.child('k').val() === 'v' || newData.child('k').val() === 'cal')",
+          "s": { ".validate": true },
+          "e": { ".validate": true },
+          "st": { ".validate": true },
+          "k": { ".validate": true },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "bookings": {
+      "$bid": {
+        ".write": "(!data.exists() && newData.child('status').val() === 'pending') || (!newData.exists() && data.child('status').val() === 'pending')",
+        ".validate": "newData.hasChildren(['date','s','e','kind','status','name','phone','payMethod','createdAt']) && newData.child('date').val().matches(/^2[0-9]{3}-[0-1][0-9]-[0-3][0-9]$/) && newData.child('s').isNumber() && newData.child('s').val() >= 0 && newData.child('e').isNumber() && newData.child('e').val() > newData.child('s').val() && newData.child('e').val() <= 1440 && (newData.child('kind').val() === 'm' || newData.child('kind').val() === 'v') && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'confirmed' || newData.child('status').val() === 'rejected' || newData.child('status').val() === 'cancelled') && newData.child('name').isString() && newData.child('name').val().length <= 50 && newData.child('phone').isString() && newData.child('phone').val().length <= 20 && (newData.child('payMethod').val() === 'hours' || newData.child('payMethod').val() === 'transfer') && newData.child('createdAt').isNumber()",
+        "date": { ".validate": true },
+        "s": { ".validate": true },
+        "e": { ".validate": true },
+        "kind": { ".validate": true },
+        "status": { ".validate": true },
+        "name": { ".validate": true },
+        "phone": { ".validate": true },
+        "createdAt": { ".validate": true },
+        "payMethod": { ".validate": true },
+        "email": { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "note": { ".validate": "newData.isString() && newData.val().length <= 300" },
+        "memberCode": { ".validate": "newData.isString() && newData.val().length <= 12" },
+        "amount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+        "payLast5": { ".validate": "newData.isString() && newData.val().matches(/^([0-9]{5})?$/)" },
+        "calEventId": { ".validate": true },
+        "rejectReason": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "adminNotifiedAt": { ".validate": true },
+        "userNotifiedAt": { ".validate": true },
+        "$other": { ".validate": false }
+      }
+    },
+    "members": {},
+    "membersPublic": {
+      "$code": { ".read": true }
+    },
+    "memberIndex": {
+      "$phone": { ".read": true }
+    },
+    "memberGrants": {
+      "$code": { ".read": true }
+    },
+    "memberBookings": {
+      "$code": {
+        ".read": true,
+        "$ym": {
+          "$bid": {
+            ".write": "(!data.exists() && newData.child('st').val() === 'pending') || (!newData.exists() && data.child('st').val() === 'pending')",
+            ".validate": "newData.hasChildren(['date','s','e','st','pay','c']) && newData.child('date').val().matches(/^2[0-9]{3}-[0-1][0-9]-[0-3][0-9]$/) && newData.child('s').isNumber() && newData.child('e').isNumber() && newData.child('e').val() > newData.child('s').val() && (newData.child('st').val() === 'pending' || newData.child('st').val() === 'confirmed' || newData.child('st').val() === 'rejected' || newData.child('st').val() === 'cancelled') && (newData.child('pay').val() === 'h' || newData.child('pay').val() === 't')",
+            "date": { ".validate": true },
+            "s": { ".validate": true },
+            "e": { ".validate": true },
+            "st": { ".validate": true },
+            "pay": { ".validate": true },
+            "c": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    },
+    "meta": {}
+  }
+}
