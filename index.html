@@ -586,20 +586,43 @@ async function submitJoin(){
   }
 }
 function shiftWeek(n){S.weekStart=addD(S.weekStart,n*7);render();}
+function isFormField(el){return !!(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT'));}
 function render(){
   const title=(S.settings.roomName||'會議室')+'預約';
   document.getElementById('hd-title-text').textContent=title;
   document.title=title;
-  ['visitor','member','admin'].forEach(r=>document.getElementById('nav-'+r).classList.toggle('on',S.role===r));
+  // 使用者正在 #view 內的欄位打字時暫停重繪（避免 Android 鍵盤開啟觸發 resize / 資料更新把輸入內容洗掉），離開欄位後補畫
+  const ae=document.activeElement;
   const v=document.getElementById('view');
+  if(isFormField(ae)&&v.contains(ae)){S._dirtyRender=true;return;}
+  S._dirtyRender=false;
+  ['visitor','member','admin'].forEach(r=>document.getElementById('nav-'+r).classList.toggle('on',S.role===r));
+  // 快照 #view 內欄位值，重繪後還原（資料更新觸發的重繪不清空使用者已輸入內容）
+  const saved={};
+  v.querySelectorAll('input,textarea,select').forEach(el=>{
+    if(el.id)saved[el.id]=el.type==='checkbox'?{c:el.checked}:{v:el.value};
+  });
   if(!S.settingsLoaded){v.innerHTML='<div class="card"><p class="hint">載入中…</p></div>';return;}
   if(S.role==='join')v.innerHTML=viewJoin();
   else if(S.role==='visitor')v.innerHTML=viewVisitor();
   else if(S.role==='member')v.innerHTML=viewMember();
   else v.innerHTML=viewAdmin();
+  for(const[id,s]of Object.entries(saved)){
+    const el=document.getElementById(id);
+    if(el&&v.contains(el)){if('c'in s)el.checked=s.c;else el.value=s.v;}
+  }
   if(S.role==='admin'&&S.adminOn&&S.aTab==='settings')updateEventPreview();
 }
 let _rz;window.addEventListener('resize',()=>{clearTimeout(_rz);_rz=setTimeout(render,150);});
+// 離開欄位後，若期間有被略過的重繪則補畫（焦點若移到下一個欄位則繼續暫停）
+document.addEventListener('focusout',()=>{
+  setTimeout(()=>{
+    if(!S._dirtyRender)return;
+    const ae=document.activeElement;
+    if(isFormField(ae)&&document.getElementById('view').contains(ae))return;
+    render();
+  },200);
+});
 
 // ═══════════ 時段表（桌機週檢視 / 手機單日檢視） ═══════════
 const isMobile=()=>window.innerWidth<=640;
