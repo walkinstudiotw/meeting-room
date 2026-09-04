@@ -9,16 +9,21 @@
 //  4. Email 通知：新申請通知管理員；確認/婉拒通知預約人
 //
 // ── 部署步驟 ──
-// 1) script.google.com 新增專案，貼上本檔為 Code.gs
-// 2) 專案設定 → 指令碼屬性（Script Properties）新增：
-//      FB_EMAIL    = walkinstudiotw@gmail.com
-//      FB_PASSWORD = <Firebase 登入密碼>
+// 0) 用【housecoworking.co@gmail.com】登入 script.google.com 建立專案
+//    （GmailApp 以專案擁有者寄信 → 所有通知信會由此帳號寄出）
+// 1) 貼上本檔為 Code.gs，儲存
+// 2) 專案設定 → 指令碼屬性（Script Properties）新增 5 筆：
+//      FB_EMAIL    = walkinstudiotw@gmail.com      ← Firebase 資料庫管理員（與寄信無關，不要改）
+//      FB_PASSWORD = <walkinstudiotw 的 Firebase 登入密碼>
 //      FB_API_KEY  = AIzaSyBYowX8BzAMlGE1CjTAKg2y3mZyEbU4StU
 //      DB_URL      = https://talkloudpm-default-rtdb.asia-southeast1.firebasedatabase.app
-//      ADMIN_EMAIL = walkinstudiotw@gmail.com   （接收新申請通知）
-// 3) 專案設定 → 時區改為 Asia/Taipei（重要！事件時間依此解讀）
-// 4) 編輯器先手動執行一次 syncTick 完成授權（Calendar + Gmail + 外部連線）
-// 5) 觸發器 → 新增：syncTick、時間驅動、每 5 分鐘
+//      ADMIN_EMAIL = <接收「待審核/新會員」通知的信箱>
+// 3) 專案設定 → 時區改為 (GMT+08:00) 台北（重要！事件時間依此解讀）
+// 4) 日曆共用：會議室日曆（後台設定裡的日曆 ID）必須分享給
+//    housecoworking.co@gmail.com 並給「進行變更」權限，該帳號才能同步事件
+// 5) 編輯器執行 testConnection 完成授權（Calendar + Gmail + 外部連線），
+//    記錄應顯示 settings 內容與日曆名稱
+// 6) 執行 installTrigger 安裝每 5 分鐘觸發器
 // （日曆 ID 與事件格式存在網頁後台「設定」，此處不用設）
 // ═════════════════════════════════════════════════════════════
 
