@@ -97,6 +97,10 @@ table.grid-30 tr.hr-row td{border-top:1px solid #e4e8ee}
 .btn-sm{padding:6px 12px;font-size:13px;border-radius:7px}
 .btn[disabled]{opacity:.5;cursor:default}
 
+/* 會員預約明細：過去的預約灰色 */
+.md-past{opacity:.55}
+.md-past .list-main b,.md-past .list-sub{color:var(--sub)}
+
 /* 付款區塊 */
 .f-row label.pay-opt{display:flex;align-items:flex-start;gap:8px;padding:8px 0;margin:0;font-size:14px;color:var(--ink);cursor:pointer;line-height:1.5}
 .f-row .pay-opt input[type=radio]{width:16px;height:16px;flex:none;margin:2px 0 0;accent-color:var(--brand)}
@@ -208,6 +212,18 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-sec" onclick="closeModal('modal-mem')">取消</button>
       <button class="btn btn-pri" onclick="saveMember()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- member detail modal -->
+<div class="modal-bg" id="modal-mdetail">
+  <div class="modal" style="max-width:520px">
+    <h3 id="md-title">會員預約明細</h3>
+    <div id="md-summary" class="hint" style="margin:-6px 0 12px"></div>
+    <div id="md-body" style="max-height:60vh;overflow-y:auto"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-sec" onclick="closeModal('modal-mdetail')">關閉</button>
     </div>
   </div>
 </div>
@@ -1035,14 +1051,14 @@ function adminOverview(){
 function adminMembers(){
   return `<div class="card"><h2>會員管理 <button class="btn btn-pri btn-sm" style="float:right" onclick="openMemModal(null)">＋ 新增會員</button></h2>
   <div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>類型</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
-  ${Object.entries(S.admin.members).map(([c,m])=>`<tr><td><b>${esc(c)}</b></td>
+  ${Object.entries(S.admin.members).map(([c,m])=>`<tr onclick="openMemberDetail('${c}')" style="cursor:pointer"><td><b>${esc(c)}</b></td>
     <td>${typeChip(m.type)}</td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
     <td>${m.type==='prepaid'?'—':(m.quota||0)+'h'}</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
     <td>${m.active!==false?'<span class="chip chip-confirmed">啟用</span>':'<span class="chip chip-cancelled">停用</span>'}</td>
-    <td style="white-space:nowrap"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
+    <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
       <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
   </table></div>
-  <p class="hint" style="margin-top:10px">🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
+  <p class="hint" style="margin-top:10px">點會員列可查看該會員的完整預約明細。🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
   ${adminInvitesHTML()}`;
 }
 // ── 會員邀請連結 ──
@@ -1158,6 +1174,29 @@ async function saveMember(){
     await dbUpdate(upd);
     closeModal('modal-mem');toast('會員已儲存');
   }catch(e){toast('儲存失敗：'+(e.message||e));}
+}
+// ── 會員預約明細 ──
+function openMemberDetail(code){
+  const m=S.admin.members[code]||{};
+  const now=new Date();
+  const list=Object.entries(S.admin.bookings)
+    .map(([id,b])=>({id,...b}))
+    .filter(b=>b.memberCode===code)
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.s-a.s); // 最新（日期最晚）在最上方
+  const isPast=b=>new Date(b.date+'T00:00:00').setMinutes(b.e)<now.getTime();
+  const upcoming=list.filter(b=>!isPast(b)&&(b.status==='confirmed'||b.status==='pending')).length;
+  document.getElementById('md-title').textContent=`${m.name||code} 的預約明細`;
+  document.getElementById('md-summary').innerHTML=
+    `${typeChip(m.type)}　可用時數 <b>${fmtH(balanceNow(code).total*60)}h</b>　未來預約 ${upcoming} 筆・共 ${list.length} 筆紀錄`;
+  document.getElementById('md-body').innerHTML=list.length?list.map(b=>{
+    const past=isPast(b);
+    return `<div class="list-item ${past?'md-past':''}">
+      <div class="list-main"><b>${b.date}（週${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）${fmtT(b.s)}–${fmtT(b.e)}</b>
+        <div class="list-sub">${fmtDur(b.e-b.s)}｜${b.payMethod==='transfer'?`匯款 NT$${b.amount}・末五碼 ${esc(b.payLast5||'—')}`:'使用時數'}${b.note?'｜'+esc(b.note):''}${b.rejectReason?'｜'+esc(b.rejectReason):''}</div></div>
+      ${past?'<span class="chip chip-cancelled">已結束</span>':''}${chip(b.status)}
+    </div>`;
+  }).join(''):'<p class="hint">此會員尚無任何預約紀錄</p>';
+  openModal('modal-mdetail');
 }
 // ── 手動發放時數 ──
 function openGrantModal(code){
