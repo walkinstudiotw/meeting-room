@@ -353,6 +353,13 @@ function sendNotifications_(settings, bookings, upd) {
   var adminMail = props_().getProperty('ADMIN_EMAIL') || props_().getProperty('FB_EMAIL');
   var room = settings.roomName || '會議室';
   var rate = ((settings.payment || {}).hourlyRate) || 0;
+  var membersCache = null; // 會員預約單上不帶 Email（隱私），寄信時才從會員資料查
+  function emailFor_(b) {
+    if (b.email) return b.email;
+    if (!b.memberCode) return '';
+    if (!membersCache) membersCache = fbGet('members') || {};
+    return (membersCache[b.memberCode] || {}).email || '';
+  }
   for (var id in bookings) {
     var b = bookings[id];
     var when = b.date + '（' + '日一二三四五六'.charAt(new Date(b.date + 'T00:00:00').getDay()) + '）' + fmtT_(b.s) + '–' + fmtT_(b.e);
@@ -367,15 +374,17 @@ function sendNotifications_(settings, bookings, upd) {
         '請至後台核對款項後核准。', { name: room });
       upd['bookings/' + id + '/adminNotifiedAt'] = Date.now();
     }
-    // 4b. 確認 / 婉拒 → 通知預約人（有 Email 才寄）
-    if ((b.status === 'confirmed' || b.status === 'rejected') && b.email && !b.userNotifiedAt) {
+    // 4b. 確認 / 婉拒 → 通知預約人（訪客用表單 Email；會員自動查會員資料的 Email）
+    if ((b.status === 'confirmed' || b.status === 'rejected') && !b.userNotifiedAt) {
+      var mail = emailFor_(b);
+      if (!mail) continue;
       if (b.status === 'confirmed') {
-        GmailApp.sendEmail(b.email, '【' + room + '】預約已確認：' + when,
+        GmailApp.sendEmail(mail, '【' + room + '】預約已確認：' + when,
           (b.name || '') + ' 您好，\n\n您的預約已確認：\n\n' +
           '　時段：' + when + '\n　付款：' + payTxt + '\n\n' +
           (settings.notice ? settings.notice + '\n\n' : '') + room + ' 敬上', { name: room });
       } else {
-        GmailApp.sendEmail(b.email, '【' + room + '】預約未能成立：' + when,
+        GmailApp.sendEmail(mail, '【' + room + '】預約未能成立：' + when,
           (b.name || '') + ' 您好，\n\n很抱歉，您的預約未能成立：\n\n' +
           '　時段：' + when + '\n　原因：' + (b.rejectReason || '時段無法安排') + '\n\n' +
           '如有匯款，我們將與您聯繫退款事宜。\n\n' + room + ' 敬上', { name: room });
