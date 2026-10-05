@@ -428,7 +428,7 @@ function installTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'syncTick') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('syncTick').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('syncTick').timeBased().everyMinutes(1).create();
 }
 // ── 輔助：測試連線（執行後看記錄） ──
 function testConnection() {
