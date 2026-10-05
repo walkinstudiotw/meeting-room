@@ -373,8 +373,16 @@ function sendNotifications_(settings, bookings, upd) {
     if (!membersCache) membersCache = fbGet('members') || {};
     return (membersCache[b.memberCode] || {}).email || '';
   }
+  var tStr = fmtD_(new Date());
   for (var id in bookings) {
     var b = bookings[id];
+    // 過去的事件一律不寄通知，只標記為已通知（避免歷史紀錄被補寄）
+    if (b.date < tStr) {
+      if (!b.adminNotifiedAt && b.status === 'pending') upd['bookings/' + id + '/adminNotifiedAt'] = Date.now();
+      if (!b.userNotifiedAt && (b.status === 'confirmed' || b.status === 'rejected')) upd['bookings/' + id + '/userNotifiedAt'] = Date.now();
+      if (!b.cancelNotifiedAt && b.status === 'cancelled') upd['bookings/' + id + '/cancelNotifiedAt'] = Date.now();
+      continue;
+    }
     var when = b.date + '（' + '日一二三四五六'.charAt(new Date(b.date + 'T00:00:00').getDay()) + '）' + fmtT_(b.s) + '–' + fmtT_(b.e);
     var payTxt = b.payMethod === 'transfer' ? ('匯款 NT$' + (b.amount || 0) + '・末五碼 ' + (b.payLast5 || '—')) : '使用會員時數';
     // 4a. 新申請（待審核的匯款單）→ 通知管理員
