@@ -560,7 +560,7 @@ function viewJoin(){
   if(st.phase==='used')return wrap('<h2>已完成註冊 ✅</h2><p class="hint" style="margin-top:8px">此連結已使用過。請至「會員專區」輸入手機號碼查詢時數並預約。</p><button class="btn btn-pri" style="margin-top:12px" onclick="switchRole(\'member\')">前往會員專區</button>');
   if(st.phase==='expired')return wrap('<h2>連結已過期</h2><p class="hint" style="margin-top:8px">請與工作室聯繫索取新連結。</p>');
   if(st.phase==='done')return wrap(`<h2>資料已送出 🎉</h2>
-    <p style="margin-top:8px">系統將於 <b>5 分鐘內</b>完成會員開通${st.email?'，開通後會寄通知信到您的 Email':''}。</p>
+    <p style="margin-top:8px">系統將於 <b>1 分鐘內</b>完成會員開通${st.email?'，開通後會寄通知信到您的 Email':''}。</p>
     <p class="hint" style="margin-top:8px">開通後請至「會員專區」輸入您的手機號碼，即可查詢時數並預約會議室。</p>
     <button class="btn btn-pri" style="margin-top:12px" onclick="switchRole('member')">前往會員專區</button>`);
   const typeName=st.inv.type==='prepaid'?'💳 會議室儲值會員':'🏢 2F 月租會員';
@@ -783,7 +783,7 @@ function viewMember(){
     </div>
     <button class="btn btn-sec btn-sm" onclick="memberLogout()">登出</button>
   </div></div>
-  <div class="notice"><b>使用時數預約免審核</b>，系統會在 5 分鐘內自動確認；時數不足時改以匯款（NT$${S.settings.payment.hourlyRate}/小時）並填末五碼，由管理員核對。</div>
+  <div class="notice"><b>使用時數預約免審核</b>，系統會在約 1 分鐘內自動確認；時數不足時改以匯款（NT$${S.settings.payment.hourlyRate}/小時）並填末五碼，由管理員核對。</div>
   ${scheduleHTML('member')}
   <div class="card" style="margin-top:16px"><h2>我的預約</h2>
     ${myBk.length?myBk.slice(0,10).map(b=>`<div class="list-item">
@@ -919,7 +919,7 @@ async function submitBooking(){
       });
       closeModal('modal-book');
       if(method==='hours'){
-        toast('預約已送出，系統將於 5 分鐘內自動確認');
+        toast('預約已送出，系統將於約 1 分鐘內自動確認');
         if(MOCK)setTimeout(()=>{dbUpdate({[`bookings/${id}/status`]:'confirmed',[`schedule/${p.date}/${id}/st`]:'confirmed',[`memberBookings/${S.memberCode}/${ym}/${id}/st`]:'confirmed'});toast('✓ 預約已自動確認（模擬）');},3000);
       }else toast('預約已送出！管理員核對匯款後即完成預約');
     }else{
@@ -982,7 +982,7 @@ function adminPending(){
   const list=Object.entries(S.admin.bookings).map(([id,b])=>({id,...b}))
     .filter(b=>b.status==='pending').sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
   return `<div class="card"><h2>待審核申請</h2>
-  <p class="hint" style="margin-bottom:8px">匯款預約需核對款項後核准；會員「使用時數」預約由系統於 5 分鐘內自動確認、不會停留在此。</p>
+  <p class="hint" style="margin-bottom:8px">匯款預約需核對款項後核准；會員「使用時數」預約由系統於約 1 分鐘內自動確認、不會停留在此。</p>
   ${list.length?list.map(b=>`<div class="list-item">
     <div class="list-main"><b>${b.date}（週${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）${fmtT(b.s)}–${fmtT(b.e)}</b> ${b.kind==='m'?'<span class="chip chip-m">會員</span>':'<span class="chip chip-v">訪客</span>'}
       <div class="list-sub">${esc(b.name)}｜${esc(b.phone)}${b.email?'｜'+esc(b.email):''}${b.note?'｜'+esc(b.note):''}</div>
@@ -1047,7 +1047,7 @@ function adminOverview(){
     <td>${b.kind==='cal'?'—':chip(b.status)}</td>
     <td>${b.kind==='cal'?'':`<button class="btn btn-bad btn-sm" onclick="adminCancelBooking('${b.id}')">取消</button>`}</td></tr>`).join('')}
   </table></div>
-  <p class="hint" style="margin-top:10px">「日曆」列＝你在 Google 日曆手動建立的事件（每 5 分鐘同步、自動擋掉時段）。上次同步：${meta.lastSyncAt?new Date(meta.lastSyncAt).toLocaleString('zh-TW'):'尚未同步'}${meta.lastError?`　<span style="color:var(--bad)">⚠ ${esc(String(meta.lastError).slice(0,120))}</span>`:''}</p></div>`;
+  <p class="hint" style="margin-top:10px">「日曆」列＝你在 Google 日曆手動建立的事件（每 1 分鐘同步、自動擋掉時段）。上次同步：${meta.lastSyncAt?new Date(meta.lastSyncAt).toLocaleString('zh-TW'):'尚未同步'}${meta.lastError?`　<span style="color:var(--bad)">⚠ ${esc(String(meta.lastError).slice(0,120))}</span>`:''}</p></div>`;
 }
 function adminMembers(){
   return `<div class="card"><h2>會員管理 <button class="btn btn-pri btn-sm" style="float:right" onclick="openMemModal(null)">＋ 新增會員</button></h2>
@@ -1074,7 +1074,7 @@ function adminInvitesHTML(){
   const rows=Object.entries(S.admin.invites||{}).map(([t,inv])=>({t,...inv}))
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,20);
   return `<div class="card"><h2>📨 會員邀請連結 <button class="btn btn-pri btn-sm" style="float:right" onclick="openInviteModal()">＋ 建立邀請</button></h2>
-  <p class="hint" style="margin-bottom:8px">建立連結傳給客人（LINE / Email），客人填完基本資料後系統於 5 分鐘內自動開通會員並通知雙方。</p>
+  <p class="hint" style="margin-bottom:8px">建立連結傳給客人（LINE / Email），客人填完基本資料後系統於約 1 分鐘內自動開通會員並通知雙方。</p>
   ${rows.length?rows.map(inv=>{
     const app=(S.admin.applications||{})[inv.t];
     let stChip;

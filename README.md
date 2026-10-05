@@ -10,7 +10,7 @@
 | 角色 | 功能 |
 |---|---|
 | 訪客 | 看可預約時段（訪客開放時段）→ 匯款（NT$/hr）＋填帳號末五碼 → 送出申請 → 管理員核對後成立 |
-| 會員 | 手機號碼查詢登入 → 看可用時數批次 → 用時數預約（**免審核**，5 分鐘內自動確認）；時數不足改匯款流程 |
+| 會員 | 手機號碼查詢登入 → 看可用時數批次 → 用時數預約（**免審核**，約 1 分鐘內自動確認）；時數不足改匯款流程 |
 | 管理員 | Firebase 登入 → 審核匯款單（顯示金額＋末五碼）、會員 CRUD、手動發放有期限的時數批次、系統設定（開放時段/費率/日曆 ID/事件格式） |
 
 時數規則：每月額度自動成為「當月批次」（月底到期歸零）；手動發放批次照自訂期限；扣抵先用快到期的；預約日必須落在批次有效期內。
@@ -33,7 +33,7 @@ Firebase Console → talkloudpm 專案 → Realtime Database → 規則：
 2. 專案設定 → 指令碼屬性：`FB_EMAIL` / `FB_PASSWORD` / `FB_API_KEY` / `DB_URL` / `ADMIN_EMAIL`（值見 appscript.gs 開頭註解）
 3. 專案設定 → 時區 **Asia/Taipei**
 4. 編輯器執行 `testConnection` 完成授權並確認連線（記錄應顯示 settings 與日曆名稱）
-5. 執行 `installTrigger` 安裝每 5 分鐘觸發器
+5. 執行 `installTrigger` 安裝每 1 分鐘觸發器
 
 ### 4. 部署
 
@@ -43,7 +43,7 @@ Push 到 `main` → GitHub Pages（Settings → Pages → Deploy from branch →
 ## 信任模型（已知取捨）
 
 - **手機號碼＝會員登入憑證**（無密碼）：知道號碼者可查該會員時數並用其額度預約；濫用時管理員可取消預約並停用會員。
-- 開放時段/時數由前端＋Apps Script 在確認時強制；惡意 client 可寫入 out-of-hours 的 pending，會在 5 分鐘內被自動婉拒（會員單）或由人工審核擋下（匯款單）。
+- 開放時段/時數由前端＋Apps Script 在確認時強制；惡意 client 可寫入 out-of-hours 的 pending，會在約 1 分鐘內被自動婉拒（會員單）或由人工審核擋下（匯款單）。
 - 未登入者可 create pending 申請（欄位有白名單＋長度上限、不佔用已確認時段）；被灌爆時再加訪客通行碼。
 - 時段表（無姓名，只有起迄與狀態）全球可讀。
 - 管理員 Firebase 密碼存於 Apps Script 指令碼屬性（信任層級同 walkin-pm 寄信 webhook）。
