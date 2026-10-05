@@ -28,7 +28,10 @@
         "s": { ".validate": true },
         "e": { ".validate": true },
         "kind": { ".validate": true },
-        "status": { ".validate": true },
+        "status": {
+          ".write": "data.parent().child('status').val() === 'pending' && newData.val() === 'cancelled'",
+          ".validate": true
+        },
         "name": { ".validate": true },
         "phone": { ".validate": true },
         "createdAt": { ".validate": true },
@@ -42,6 +45,7 @@
         "rejectReason": { ".validate": "newData.isString() && newData.val().length <= 200" },
         "adminNotifiedAt": { ".validate": true },
         "userNotifiedAt": { ".validate": true },
+        "cancelNotifiedAt": { ".validate": true },
         "$other": { ".validate": false }
       }
     },
@@ -79,7 +83,10 @@
             "date": { ".validate": true },
             "s": { ".validate": true },
             "e": { ".validate": true },
-            "st": { ".validate": true },
+            "st": {
+              ".write": "data.parent().child('st').val() === 'pending' && newData.val() === 'cancelled'",
+              ".validate": true
+            },
             "pay": { ".validate": true },
             "c": { ".validate": true },
             "$other": { ".validate": false }

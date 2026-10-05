@@ -745,9 +745,10 @@ function myVisitorListHTML(){
 async function cancelVisitor(id){
   const rec=S.myVisitor.find(r=>r.id===id);if(!rec)return;
   try{
-    await dbUpdate({[`bookings/${id}`]:null,[`schedule/${rec.date}/${id}`]:null});
+    // 保留預約紀錄標記取消（同步程式據此寄通知信），只刪時段占用
+    await dbUpdate({[`bookings/${id}/status`]:'cancelled',[`schedule/${rec.date}/${id}`]:null});
     S.myVisitor=S.myVisitor.filter(r=>r.id!==id);lsSet('mr.visitor',S.myVisitor);
-    render();toast('已取消預約');
+    render();toast('已取消預約，系統將寄送通知信');
   }catch(e){toast('取消失敗：'+(e.message||e));}
 }
 function chip(st){
@@ -824,11 +825,11 @@ function memberLogout(){
 async function cancelMemberBk(id,date,ym){
   try{
     await dbUpdate({
-      [`bookings/${id}`]:null,
+      [`bookings/${id}/status`]:'cancelled',
       [`schedule/${date}/${id}`]:null,
-      [`memberBookings/${S.memberCode}/${ym}/${id}`]:null
+      [`memberBookings/${S.memberCode}/${ym}/${id}/st`]:'cancelled'
     });
-    toast('已取消預約');
+    toast('已取消預約，系統將寄送通知信');
   }catch(e){toast('取消失敗：'+(e.message||e));}
 }
 

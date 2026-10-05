@@ -150,6 +150,7 @@ function syncTick() {
 
 // 0) 邀請連結 → 自動開通會員
 var SITE_URL = 'https://walkinstudiotw.github.io/meeting-room/';
+var CANCEL_NOTIFY = 'housecoworking.co@gmail.com'; // 取消通知收件人
 function processApplications_(settings, upd) {
   var apps = fbGet('applications') || {};
   var any = false; for (var k in apps) { any = true; break; }
@@ -271,6 +272,10 @@ function pushToCalendar_(settings, bookings, today, upd) {
   var titleTpl = (settings.calendar || {}).eventTitle || '【預約】{name}（{type}）';
   var descTpl = (settings.calendar || {}).eventDesc || '';
   var tStr = fmtD_(today);
+  // ⚠️ 事件查詢一律用 cal.getEventById（日曆範圍內）。
+  // CalendarApp.getEventById 只查「已加入帳號日曆清單」的日曆，共用日曆沒加入清單時
+  // 會永遠回 null → 曾導致已確認預約被誤判「日曆端已刪除」而自動取消。
+  var calMissing = fbGet('meta/calMissing') || {};
   for (var id in bookings) {
     var b = bookings[id];
     if (b.status === 'confirmed' && !b.calEventId && b.date >= tStr) {
@@ -279,17 +284,25 @@ function pushToCalendar_(settings, bookings, today, upd) {
       ev.setTag(TAG_KEY, id);
       upd['bookings/' + id + '/calEventId'] = ev.getId();
     } else if ((b.status === 'cancelled' || b.status === 'rejected') && b.calEventId) {
-      try { var old = CalendarApp.getEventById(b.calEventId); if (old) old.deleteEvent(); } catch (e) {}
+      try { var old = cal.getEventById(b.calEventId); if (old) old.deleteEvent(); } catch (e) {}
       upd['bookings/' + id + '/calEventId'] = null;
     } else if (b.status === 'confirmed' && b.calEventId && b.date >= tStr) {
       var exist = null;
-      try { exist = CalendarApp.getEventById(b.calEventId); } catch (e) {}
-      if (!exist) { // 管理者直接在日曆刪除 → 視為取消
-        upd['bookings/' + id + '/status'] = 'cancelled';
-        upd['bookings/' + id + '/calEventId'] = null;
-        upd['schedule/' + b.date + '/' + id] = null;
-        if (b.memberCode) upd['memberBookings/' + b.memberCode + '/' + b.date.slice(0, 7) + '/' + id + '/st'] = 'cancelled';
-        b.status = 'cancelled';
+      try { exist = cal.getEventById(b.calEventId); } catch (e) {}
+      if (!exist) {
+        // 保險：連續兩輪（≥10 分鐘）都找不到才視為「日曆端已刪除」→ 取消，避免 API 偶發 null 誤殺
+        if (calMissing[id]) {
+          upd['bookings/' + id + '/status'] = 'cancelled';
+          upd['bookings/' + id + '/calEventId'] = null;
+          upd['schedule/' + b.date + '/' + id] = null;
+          if (b.memberCode) upd['memberBookings/' + b.memberCode + '/' + b.date.slice(0, 7) + '/' + id + '/st'] = 'cancelled';
+          b.status = 'cancelled';
+          upd['meta/calMissing/' + id] = null;
+        } else {
+          upd['meta/calMissing/' + id] = Date.now();
+        }
+      } else if (calMissing[id]) {
+        upd['meta/calMissing/' + id] = null; // 又找得到了 → 清除標記
       }
     }
   }
@@ -390,6 +403,22 @@ function sendNotifications_(settings, bookings, upd) {
           '如有匯款，我們將與您聯繫退款事宜。\n\n' + room + ' 敬上', { name: room });
       }
       upd['bookings/' + id + '/userNotifiedAt'] = Date.now();
+    }
+    // 4c. 取消（預約人自行取消 / 後台取消 / 日曆端刪除）→ 通知管理端與預約人
+    if (b.status === 'cancelled' && !b.cancelNotifiedAt) {
+      var who = (b.name || '') + (b.kind === 'm' ? '（會員 ' + (b.memberCode || '') + '）' : '（訪客）');
+      GmailApp.sendEmail(CANCEL_NOTIFY, '【' + room + '】預約已取消：' + when,
+        '以下預約已取消：\n\n　時段：' + when + '\n　預約人：' + who +
+        '\n　電話：' + (b.phone || '—') + '\n　付款：' + payTxt +
+        (b.payMethod === 'transfer' ? '\n\n※ 此單為匯款付款，請確認是否需退款。' : ''), { name: room });
+      var cmail = emailFor_(b);
+      if (cmail && cmail !== CANCEL_NOTIFY) {
+        GmailApp.sendEmail(cmail, '【' + room + '】您的預約已取消：' + when,
+          (b.name || '') + ' 您好，\n\n您的預約已取消：\n\n　時段：' + when + '\n　付款：' + payTxt + '\n\n' +
+          (b.payMethod === 'transfer' ? '如已完成匯款，我們將與您聯繫退款事宜。\n\n' : '') +
+          '歡迎再次預約：' + SITE_URL + '\n\n' + room + ' 敬上', { name: room });
+      }
+      upd['bookings/' + id + '/cancelNotifiedAt'] = Date.now();
     }
   }
 }
