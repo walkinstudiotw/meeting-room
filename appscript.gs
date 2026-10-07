@@ -47,15 +47,27 @@ function getToken_() {
   cache.put('fb_token', body.idToken, 3000); // 50 分鐘
   return body.idToken;
 }
+function fetchRetry_(url, opt) { // 網路瞬斷自動重試一次；錯誤訊息不帶 token
+  try {
+    return UrlFetchApp.fetch(url, opt);
+  } catch (e) {
+    Utilities.sleep(2000);
+    try {
+      return UrlFetchApp.fetch(url, opt);
+    } catch (e2) {
+      throw new Error('Firebase 連線失敗（已重試）：' + String(e2).replace(/\?auth=[^\s"']+/g, '?auth=***'));
+    }
+  }
+}
 function fb_(method, path, payload) {
   var url = props_().getProperty('DB_URL') + '/' + ROOT + '/' + path + '.json?auth=' + getToken_();
   var opt = { method: method, muteHttpExceptions: true, contentType: 'application/json' };
   if (payload !== undefined) opt.payload = JSON.stringify(payload);
-  var res = UrlFetchApp.fetch(url, opt);
+  var res = fetchRetry_(url, opt);
   if (res.getResponseCode() === 401) { // token 過期重試一次
     CacheService.getScriptCache().remove('fb_token');
     url = props_().getProperty('DB_URL') + '/' + ROOT + '/' + path + '.json?auth=' + getToken_();
-    res = UrlFetchApp.fetch(url, opt);
+    res = fetchRetry_(url, opt);
   }
   if (res.getResponseCode() >= 400) throw new Error('Firebase ' + method + ' ' + path + ' → ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
   var txt = res.getContentText();
