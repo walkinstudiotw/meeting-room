@@ -1231,8 +1231,10 @@ function openAdminBooking(code){
   openModal('modal-abk');
 }
 function _abkConflict(date,s,e){
+  const past=date<fmtD(today);
   for(const b of schedOn(date)){
     if(b.st!=='confirmed'&&b.k!=='cal')continue;
+    if(past&&b.k==='cal')continue; // 過去日期的日曆占用塊不擋補登（通常補登的就是那筆使用紀錄）
     if(s<b.e&&e>b.s)return b;
   }
   return null;
