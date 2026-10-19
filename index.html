@@ -1091,7 +1091,8 @@ function adminMembers(){
     <td>${typeChip(m.type)}</td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
     <td>${m.type==='prepaid'?'—':(m.quota||0)+'h'}</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
     <td>${m.active!==false?'<span class="chip chip-confirmed">啟用</span>':'<span class="chip chip-cancelled">停用</span>'}</td>
-    <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
+    <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn btn-ok btn-sm" onclick="openAdminBooking('${c}')">預約</button>
+      <button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
       <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
   </table></div>
   <p class="hint" style="margin-top:10px">點會員列可查看該會員的完整預約明細。🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
