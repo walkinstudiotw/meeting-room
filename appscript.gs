@@ -118,7 +118,7 @@ function allocate_(grants, uses) { // uses: [{date,h,c}] 依 c 排序
     var need = u.h;
     for (var i = 0; i < grants.length && need > 0; i++) {
       var g = grants[i];
-      if (g.start > u.date || g.exp < u.date) continue;
+      if (g.start > u.date || g.exp < u.date || g.remain <= 0) continue; // 負數批次（扣除調整）不參與抵扣
       var take = Math.min(need, g.remain);
       g.remain -= take; need -= take;
     }

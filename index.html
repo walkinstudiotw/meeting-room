@@ -222,8 +222,31 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     <h3 id="md-title">會員預約明細</h3>
     <div id="md-summary" class="hint" style="margin:-6px 0 12px"></div>
     <div id="md-body" style="max-height:60vh;overflow-y:auto"></div>
-    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+    <div style="display:flex;justify-content:space-between;margin-top:14px">
+      <button class="btn btn-pri" onclick="closeModal('modal-mdetail');openAdminBooking(S.mdCode)">＋ 新增預約</button>
       <button class="btn btn-sec" onclick="closeModal('modal-mdetail')">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- admin create booking modal -->
+<div class="modal-bg" id="modal-abk">
+  <div class="modal">
+    <h3 id="abk-title">新增預約</h3>
+    <div class="f-row"><label>日期（可選過去日期補登）</label><input id="abk-date" type="date" onchange="updateAbkInfo()"></div>
+    <div style="display:flex;gap:12px">
+      <div class="f-row" style="flex:1"><label>開始時間</label><select id="abk-start" onchange="updateAbkInfo()"></select></div>
+      <div class="f-row" style="flex:1"><label>時長</label><select id="abk-dur" onchange="updateAbkInfo()"></select></div>
+    </div>
+    <div class="f-row"><label>付款方式</label><select id="abk-pay" onchange="updateAbkInfo()">
+      <option value="hours">⏱ 使用會員時數</option>
+      <option value="transfer">💰 匯款（會員價）</option>
+    </select></div>
+    <div class="f-row"><label>備註</label><input id="abk-note" maxlength="300" placeholder="選填"></div>
+    <div id="abk-info" style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-sec" onclick="closeModal('modal-abk')">取消</button>
+      <button class="btn btn-pri" onclick="submitAdminBooking()">建立預約（直接成立）</button>
     </div>
   </div>
 </div>
@@ -233,13 +256,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   <div class="modal">
     <h3 id="grant-title">發放時數</h3>
     <div style="display:flex;gap:12px">
-      <div class="f-row" style="flex:1"><label>時數（小時）</label><input id="gr-h" type="number" min="0.5" step="0.5" value="5"></div>
+      <div class="f-row" style="flex:1"><label>時數（負數＝扣除）</label><input id="gr-h" type="number" step="0.5" value="5"></div>
       <div class="f-row" style="flex:1.4"><label>使用期限（含當日）</label><input id="gr-exp" type="date"></div>
     </div>
-    <div class="f-row"><label>備註</label><input id="gr-note" maxlength="50" placeholder="例：加購 10 小時方案 / 活動贈送"></div>
+    <div class="f-row"><label>備註</label><input id="gr-note" maxlength="50" placeholder="例：加購 10 小時 / 活動贈送 / 誤發修正"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin:4px 0 14px">
-      <button class="btn btn-sec" onclick="closeModal('modal-grant')">關閉</button>
-      <button class="btn btn-pri" onclick="saveGrant()">發放</button>
+      <button class="btn btn-sec" id="gr-cancel-btn" onclick="cancelGrantEdit()">關閉</button>
+      <button class="btn btn-pri" id="gr-save-btn" onclick="saveGrant()">發放</button>
     </div>
     <div id="gr-list"></div>
   </div>
@@ -494,7 +517,7 @@ function grantAlloc(code){
   for(const u of uses){
     let need=u.h;
     for(const g of out){
-      if(g.start>u.date||g.exp<u.date)continue;
+      if(g.start>u.date||g.exp<u.date||g.remain<=0)continue; // 負數批次（扣除調整）不參與抵扣，只減總額
       const take=Math.min(need,g.remain);g.remain-=take;need-=take;
       if(need<=0)break;
     }
@@ -1188,8 +1211,81 @@ async function saveMember(){
     closeModal('modal-mem');toast('會員已儲存');
   }catch(e){toast('儲存失敗：'+(e.message||e));}
 }
+// ── 後台幫會員新增預約（直接成立，不經審核） ──
+function openAdminBooking(code){
+  S.abkCode=code;
+  const m=S.admin.members[code]||{};
+  document.getElementById('abk-title').textContent=`新增預約 — ${m.name||code}`;
+  document.getElementById('abk-date').value=fmtD(today);
+  const slot=S.settings.slotMinutes;
+  let opts='';for(let t=0;t<1440;t+=slot)opts+=`<option value="${t}">${fmtT(t)}</option>`;
+  document.getElementById('abk-start').innerHTML=opts;
+  document.getElementById('abk-start').value=String(M(10));
+  let dopts='';for(let d=slot;d<=240;d+=slot)dopts+=`<option value="${d}">${fmtDur(d)}</option>`;
+  document.getElementById('abk-dur').innerHTML=dopts;
+  document.getElementById('abk-dur').value='60';
+  document.getElementById('abk-pay').value='hours';
+  document.getElementById('abk-note').value='';
+  updateAbkInfo();
+  openModal('modal-abk');
+}
+function _abkConflict(date,s,e){
+  for(const b of schedOn(date)){
+    if(b.st!=='confirmed'&&b.k!=='cal')continue;
+    if(s<b.e&&e>b.s)return b;
+  }
+  return null;
+}
+function updateAbkInfo(){
+  const code=S.abkCode;if(!code)return;
+  const date=document.getElementById('abk-date').value;
+  const s=+document.getElementById('abk-start').value;
+  const dur=+document.getElementById('abk-dur').value;
+  const pay=document.getElementById('abk-pay').value;
+  const avail=availForDate(code,date);
+  const conflict=date?_abkConflict(date,s,s+dur):null;
+  let h=`時段：<b>${date||'—'} ${fmtT(s)}–${fmtT(s+dur)}</b><br>`;
+  if(pay==='hours'){
+    const after=avail-dur/60;
+    h+=`該日可用時數 <b>${fmtH(avail*60)}</b> 小時，此預約扣 <b>${fmtH(dur)}</b> → 剩 <b style="color:${after<0?'var(--bad)':'var(--ok)'}">${fmtH(after*60)}</b> 小時${after<0?'（將超扣，建立前請確認）':''}`;
+  }else{
+    h+=`匯款金額 <b>NT$${Math.round(dur/60*rateFor('member'))}</b>（會員價 NT$${rateFor('member')}/小時）；建立後可在總覽勾「已收款」`;
+  }
+  if(conflict)h+=`<br><span style="color:var(--bad);font-weight:600">⚠ 與既有時段衝突（${fmtT(conflict.s)}–${fmtT(conflict.e)}），無法建立</span>`;
+  document.getElementById('abk-info').innerHTML=h;
+}
+async function submitAdminBooking(){
+  const code=S.abkCode;if(!code)return;
+  const m=S.admin.members[code]||{};
+  const date=document.getElementById('abk-date').value;
+  const s=+document.getElementById('abk-start').value;
+  const dur=+document.getElementById('abk-dur').value;
+  const pay=document.getElementById('abk-pay').value;
+  const note=document.getElementById('abk-note').value.trim();
+  if(!date)return toast('請選擇日期');
+  const e=s+dur;
+  if(e>1440)return toast('時段跨日，請調整');
+  if(_abkConflict(date,s,e))return toast('時段與既有預約／日曆占用衝突');
+  if(pay==='hours'&&availForDate(code,date)<dur/60){
+    if(!confirm(`此會員該日可用時數不足（剩 ${fmtH(Math.max(0,availForDate(code,date))*60)} 小時），仍要建立並超扣嗎？`))return;
+  }
+  try{
+    const id=newId();
+    const ym=date.slice(0,7);
+    const amt=pay==='transfer'?Math.round(dur/60*rateFor('member')):0;
+    await dbUpdate({
+      [`bookings/${id}`]:{date,s,e,kind:'m',status:'confirmed',name:m.name||'',phone:'',email:'',note,
+        memberCode:code,payMethod:pay,amount:amt,payLast5:'',createdAt:Date.now(),adminNotifiedAt:Date.now()},
+      [`schedule/${date}/${id}`]:{s,e,st:'confirmed',k:'m'},
+      [`memberBookings/${code}/${ym}/${id}`]:{date,s,e,st:'confirmed',pay:pay==='transfer'?'t':'h',c:Date.now()}
+    });
+    closeModal('modal-abk');render();
+    toast(`✓ 已為 ${m.name||code} 建立預約（${date} ${fmtT(s)}–${fmtT(e)}）`+(date>=fmtD(today)?'，日曆將於 1 分鐘內同步':''));
+  }catch(err){toast('建立失敗：'+(err.message||err));}
+}
 // ── 會員預約明細 ──
 function openMemberDetail(code){
+  S.mdCode=code;
   const m=S.admin.members[code]||{};
   const now=new Date();
   const list=Object.entries(S.admin.bookings)
@@ -1213,35 +1309,65 @@ function openMemberDetail(code){
 }
 // ── 手動發放時數 ──
 function openGrantModal(code){
-  S.grantCode=code;
+  S.grantCode=code;S.grantEditId=null;
   const m=S.admin.members[code]||{};
   const isPre=m.type==='prepaid';
-  document.getElementById('grant-title').textContent=`${isPre?'儲值':'發放時數'} — ${m.name||code}`;
+  document.getElementById('grant-title').textContent=`${isPre?'儲值／調整時數':'發放／調整時數'} — ${m.name||code}`;
   document.getElementById('gr-h').value=isPre?10:5;
   document.getElementById('gr-exp').value=fmtD(addD(today,isPre?180:90));
   document.getElementById('gr-note').value='';
-  document.getElementById('gr-note').placeholder=isPre?'例：儲值 10 小時方案':'例：加購 / 活動贈送';
+  document.getElementById('gr-note').placeholder=isPre?'例：儲值 10 小時方案 / 誤發修正':'例：加購 / 活動贈送 / 誤發修正';
+  document.getElementById('gr-save-btn').textContent='發放';
   renderGrantList();openModal('modal-grant');
 }
 function renderGrantList(){
   const manual=grantAlloc(S.grantCode).filter(g=>!g.auto&&g.exp>=fmtD(today));
   document.getElementById('gr-list').innerHTML=manual.length
-    ?'<label style="font-size:13px;color:var(--sub)">已發放（未到期）</label>'+manual.map(g=>`<div class="list-item">
-      <div class="list-main"><b>剩 ${fmtH(g.remain*60)} / ${g.h} 小時</b><div class="list-sub">至 ${g.exp}${g.note?'・'+esc(g.note):''}</div></div>
+    ?'<label style="font-size:13px;color:var(--sub)">已發放（未到期）— 點「編輯」可直接修改</label>'+manual.map(g=>`<div class="list-item" ${g.id===S.grantEditId?'style="background:var(--brand-soft);border-radius:8px"':''}>
+      <div class="list-main"><b style="${g.h<0?'color:var(--bad)':''}">${g.h<0?`扣除 ${fmtH(-g.h*60)} 小時`:`剩 ${fmtH(g.remain*60)} / ${g.h} 小時`}</b><div class="list-sub">至 ${g.exp}${g.note?'・'+esc(g.note):''}</div></div>
+      <button class="btn btn-sec btn-sm" onclick="editGrant('${g.id}')">編輯</button>
       <button class="btn btn-bad btn-sm" onclick="delGrant('${g.id}')">刪除</button></div>`).join('')
     :'<p class="hint">尚無手動發放紀錄</p>';
+}
+function editGrant(gid){
+  const g=((S.admin.grants||{})[S.grantCode]||{})[gid];if(!g)return;
+  S.grantEditId=gid;
+  document.getElementById('gr-h').value=g.h;
+  document.getElementById('gr-exp').value=g.exp;
+  document.getElementById('gr-note').value=g.note||'';
+  document.getElementById('gr-save-btn').textContent='更新';
+  document.getElementById('gr-cancel-btn').textContent='取消編輯';
+  renderGrantList();
+}
+function cancelGrantEdit(){
+  if(S.grantEditId){
+    S.grantEditId=null;
+    document.getElementById('gr-save-btn').textContent='發放';
+    document.getElementById('gr-cancel-btn').textContent='關閉';
+    renderGrantList();
+  }else closeModal('modal-grant');
 }
 async function saveGrant(){
   const h=+document.getElementById('gr-h').value;
   const exp=document.getElementById('gr-exp').value;
-  if(!(h>0)||!exp)return toast('請填寫時數與使用期限');
+  if(!h||!exp)return toast('請填寫時數（不可為 0）與使用期限');
   if(exp<fmtD(today))return toast('使用期限不可早於今天');
-  const gid='g'+Date.now();
+  const note=document.getElementById('gr-note').value.trim();
   try{
-    await dbUpdate({[`memberGrants/${S.grantCode}/${gid}`]:{h,exp,start:fmtD(today),note:document.getElementById('gr-note').value.trim(),at:Date.now()}});
+    if(S.grantEditId){
+      const old=((S.admin.grants||{})[S.grantCode]||{})[S.grantEditId]||{};
+      await dbUpdate({[`memberGrants/${S.grantCode}/${S.grantEditId}`]:{h,exp,start:old.start||fmtD(today),note,at:old.at||Date.now()}});
+      toast('✓ 批次已更新');
+      S.grantEditId=null;
+      document.getElementById('gr-save-btn').textContent='發放';
+      document.getElementById('gr-cancel-btn').textContent='關閉';
+    }else{
+      const gid='g'+Date.now();
+      await dbUpdate({[`memberGrants/${S.grantCode}/${gid}`]:{h,exp,start:fmtD(today),note,at:Date.now()}});
+      toast(h>0?`✓ 已發放 ${fmtH(h*60)} 小時（${exp} 前有效）`:`✓ 已扣除 ${fmtH(-h*60)} 小時`);
+    }
     renderGrantList();
-    toast(`✓ 已發放 ${fmtH(h*60)} 小時（${exp} 前有效）`);
-  }catch(e){toast('發放失敗：'+(e.message||e));}
+  }catch(e){toast('儲存失敗：'+(e.message||e));}
 }
 async function delGrant(id){
   try{
