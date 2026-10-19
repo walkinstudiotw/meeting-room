@@ -301,7 +301,7 @@ const DEFAULT_SETTINGS={
     visitor:{mon:[10,18],tue:[10,18],wed:[10,18],thu:[10,18],fri:[10,18],sat:null,sun:null},
     member:{mon:[9,22],tue:[9,22],wed:[9,22],thu:[9,22],fri:[9,22],sat:[10,20],sun:null}
   },
-  payment:{hourlyRate:350,bankInfo:'（請至後台設定匯款帳戶資訊）'},
+  payment:{hourlyRate:350,memberHourlyRate:200,bankInfo:'（請至後台設定匯款帳戶資訊）'},
   calendar:{
     calendarId:'u37l7i10ki1tmpgc2q67g5qnm0@group.calendar.google.com',
     eventTitle:'【預約】{name}（{type}）',
@@ -508,6 +508,11 @@ function balanceNow(code){
   return {items,total:items.reduce((a,g)=>a+g.remain,0)};
 }
 
+// 費率：會員與訪客不同（會員價未設定時沿用訪客價）
+function rateFor(role){
+  const p=S.settings.payment;
+  return role==='member'?(p.memberHourlyRate??p.hourlyRate):p.hourlyRate;
+}
 // ═══════════ 時段狀態 ═══════════
 function hoursOf(role,dateStr){
   const d=new Date(dateStr+'T00:00:00');
@@ -783,7 +788,7 @@ function viewMember(){
     </div>
     <button class="btn btn-sec btn-sm" onclick="memberLogout()">登出</button>
   </div></div>
-  <div class="notice"><b>使用時數預約免審核</b>，系統會在約 1 分鐘內自動確認；時數不足時改以匯款（NT$${S.settings.payment.hourlyRate}/小時）並填末五碼，由管理員核對。</div>
+  <div class="notice"><b>使用時數預約免審核</b>，系統會在約 1 分鐘內自動確認；時數不足時改以匯款（會員價 NT$${rateFor('member')}/小時）並填末五碼，由管理員核對。</div>
   ${scheduleHTML('member')}
   <div class="card" style="margin-top:16px"><h2>我的預約</h2>
     ${myBk.length?myBk.slice(0,10).map(b=>`<div class="list-item">
@@ -856,7 +861,7 @@ function setPayM(v){S.pick.payMethod=v;updatePayUI();}
 function updatePayUI(){
   const p=S.pick;if(!p)return;
   const dur=+document.getElementById('bk-dur').value||0;
-  const hrs=dur/60, rate=S.settings.payment.hourlyRate;
+  const hrs=dur/60, rate=rateFor(p.role);
   const amt=Math.round(hrs*rate);
   let leftH=0, canHours=false;
   if(p.role==='member'){
@@ -894,7 +899,7 @@ async function submitBooking(){
   const note=document.getElementById('bk-note').value.trim();
   for(let i=0;i<dur/slot;i++)if(slotState(p.date,p.m+i*slot,p.role).st!=='free')return toast('時段已被搶先預約，請重新選擇');
   const method=p.role==='member'?(p.payMethod||'transfer'):'transfer';
-  const amt=Math.round(dur/60*S.settings.payment.hourlyRate);
+  const amt=Math.round(dur/60*rateFor(p.role));
   let payLast5='';
   if(method==='transfer'){
     payLast5=(document.getElementById('bk-last5')?.value||'').trim();
@@ -1280,7 +1285,8 @@ function adminSettings(){
     </div>
     <div class="sec-title">💰 收費與匯款</div>
     <div style="display:flex;gap:16px;flex-wrap:wrap">
-      <div class="f-row" style="width:160px"><label>每小時費用（NT$）</label><input id="set-rate" type="number" min="0" value="${st.payment.hourlyRate}"></div>
+      <div class="f-row" style="width:160px"><label>訪客每小時費用（NT$）</label><input id="set-rate" type="number" min="0" value="${st.payment.hourlyRate}"></div>
+      <div class="f-row" style="width:160px"><label>會員每小時費用（NT$）</label><input id="set-rate-m" type="number" min="0" value="${st.payment.memberHourlyRate??st.payment.hourlyRate}"></div>
       <div class="f-row" style="flex:1;min-width:260px"><label>匯款帳戶資訊（顯示於預約表單）</label><input id="set-bank" value="${esc(st.payment.bankInfo)}"></div>
     </div>
     <div class="sec-title">📆 Google 日曆同步</div>
@@ -1303,6 +1309,7 @@ async function saveSettings(){
   st.bookingWindowDays=+document.getElementById('set-window').value||30;
   st.slotMinutes=+document.getElementById('set-slot').value===60?60:30;
   st.payment.hourlyRate=Math.max(0,+document.getElementById('set-rate').value||0);
+  st.payment.memberHourlyRate=Math.max(0,+document.getElementById('set-rate-m').value||0);
   st.payment.bankInfo=document.getElementById('set-bank').value.trim();
   st.calendar.calendarId=document.getElementById('set-cal-id').value.trim();
   st.calendar.eventTitle=document.getElementById('set-ev-title').value;
