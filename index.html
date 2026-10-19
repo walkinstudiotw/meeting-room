@@ -788,7 +788,7 @@ function viewMember(){
     </div>
     <button class="btn btn-sec btn-sm" onclick="memberLogout()">登出</button>
   </div></div>
-  <div class="notice"><b>使用時數預約免審核</b>，系統會在約 1 分鐘內自動確認；時數不足時改以匯款（會員價 NT$${rateFor('member')}/小時）並填末五碼，由管理員核對。</div>
+  <div class="notice"><b>會員預約免審核</b>，系統約 1 分鐘內自動確認；時數不足時改以匯款（會員價 NT$${rateFor('member')}/小時）並填末五碼，預約一樣直接成立，請記得完成匯款。</div>
   ${scheduleHTML('member')}
   <div class="card" style="margin-top:16px"><h2>我的預約</h2>
     ${myBk.length?myBk.slice(0,10).map(b=>`<div class="list-item">
@@ -877,7 +877,7 @@ function updatePayUI(){
       h+=`<label class="pay-opt"><input type="radio" name="paym" ${method==='hours'?'checked':''} onchange="setPayM('hours')"><span class="pay-txt">⏱ 使用會員時數（該日可用 ${fmtH(leftH*60)} 小時，此次扣 ${fmtH(dur)}）<span class="chip chip-confirmed" style="margin-left:4px">免審核</span></span></label>
           <label class="pay-opt"><input type="radio" name="paym" ${method==='transfer'?'checked':''} onchange="setPayM('transfer')"><span class="pay-txt">💰 匯款付款 NT$${amt}</span></label>`;
     }else{
-      h+=`<div class="pay-warn">該預約日可用時數不足（剩 ${fmtH(Math.max(0,leftH)*60)} 小時），此預約需以匯款付款。</div>`;
+      h+=`<div class="pay-warn">該預約日可用時數不足（剩 ${fmtH(Math.max(0,leftH)*60)} 小時），此預約改以匯款付款（會員價 NT$${rate}/小時），一樣直接成立。</div>`;
     }
   }
   if(method==='transfer'){
@@ -886,7 +886,7 @@ function updatePayUI(){
       <span class="hint">匯款帳戶：${esc(S.settings.payment.bankInfo)}</span>
       <div style="margin-top:8px"><label style="font-size:13px;color:var(--sub)">匯款帳號末五碼 *</label>
       <input id="bk-last5" maxlength="5" inputmode="numeric" placeholder="請先完成匯款後填寫" value="${esc(p.last5||'')}" oninput="S.pick.last5=this.value" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px"></div>
-      <p class="hint" style="margin-top:6px">送出後由管理員核對款項，確認後即完成預約。</p>
+      <p class="hint" style="margin-top:6px">${p.role==='member'?'會員預約直接成立免審核；請記得完成匯款，款項由工作室內部核對。':'送出後由管理員核對款項，確認後即完成預約。'}</p>
     </div>`;
   }
   document.getElementById('bk-pay').innerHTML=h;
@@ -923,10 +923,9 @@ async function submitBooking(){
         [`memberBookings/${S.memberCode}/${ym}/${id}`]:{date:p.date,s:bk.s,e:bk.e,st:'pending',pay:method==='transfer'?'t':'h',c:bk.createdAt}
       });
       closeModal('modal-book');
-      if(method==='hours'){
-        toast('預約已送出，系統將於約 1 分鐘內自動確認');
-        if(MOCK)setTimeout(()=>{dbUpdate({[`bookings/${id}/status`]:'confirmed',[`schedule/${p.date}/${id}/st`]:'confirmed',[`memberBookings/${S.memberCode}/${ym}/${id}/st`]:'confirmed'});toast('✓ 預約已自動確認（模擬）');},3000);
-      }else toast('預約已送出！管理員核對匯款後即完成預約');
+      // 會員預約（含匯款）一律自動確認，無需後台審核
+      toast(method==='hours'?'預約已送出，系統將於約 1 分鐘內自動確認':'預約已送出，系統將於約 1 分鐘內自動確認；請記得完成匯款');
+      if(MOCK)setTimeout(()=>{dbUpdate({[`bookings/${id}/status`]:'confirmed',[`schedule/${p.date}/${id}/st`]:'confirmed',[`memberBookings/${S.memberCode}/${ym}/${id}/st`]:'confirmed'});toast('✓ 預約已自動確認（模擬）');},3000);
     }else{
       const name=document.getElementById('bk-name').value.trim();
       const phone=document.getElementById('bk-phone').value.trim();
@@ -987,7 +986,7 @@ function adminPending(){
   const list=Object.entries(S.admin.bookings).map(([id,b])=>({id,...b}))
     .filter(b=>b.status==='pending').sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
   return `<div class="card"><h2>待審核申請</h2>
-  <p class="hint" style="margin-bottom:8px">匯款預約需核對款項後核准；會員「使用時數」預約由系統於約 1 分鐘內自動確認、不會停留在此。</p>
+  <p class="hint" style="margin-bottom:8px">只有<b>訪客</b>的匯款申請需在此核對款項後核准；會員預約（含匯款）由系統自動確認，匯款對帳請至「預約總覽」勾「已收款」。</p>
   ${list.length?list.map(b=>`<div class="list-item">
     <div class="list-main"><b>${b.date}（週${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）${fmtT(b.s)}–${fmtT(b.e)}</b> ${b.kind==='m'?'<span class="chip chip-m">會員</span>':'<span class="chip chip-v">訪客</span>'}
       <div class="list-sub">${esc(b.name)}｜${esc(b.phone)}${b.email?'｜'+esc(b.email):''}${b.note?'｜'+esc(b.note):''}</div>
@@ -996,10 +995,16 @@ function adminPending(){
     <button class="btn btn-bad btn-sm" onclick="rejectBooking('${b.id}')">婉拒</button>
   </div>`).join(''):'<p class="hint">目前沒有待審核的申請 🎉</p>'}</div>`;
 }
+async function setPayRecv(id,checked){ // 內部收款對帳勾選（不影響預約狀態）
+  try{
+    await dbUpdate({[`bookings/${id}/payRecv`]:checked?true:null});
+    toast(checked?'✓ 已標記收款':'已取消收款標記');
+  }catch(e){toast('操作失敗：'+(e.message||e));}
+}
 async function approveBooking(id){
   const b=S.admin.bookings[id];if(!b)return;
   try{
-    const upd={[`bookings/${id}/status`]:'confirmed',[`schedule/${b.date}/${id}/st`]:'confirmed'};
+    const upd={[`bookings/${id}/status`]:'confirmed',[`schedule/${b.date}/${id}/st`]:'confirmed',[`bookings/${id}/payRecv`]:true};
     if(b.memberCode)upd[`memberBookings/${b.memberCode}/${b.date.slice(0,7)}/${id}/st`]='confirmed';
     await dbUpdate(upd);
     toast(`✓ 已核准，同步程式將建立日曆事件「${renderEventText(S.settings.calendar.eventTitle,b)}」並寄送通知`);
@@ -1048,7 +1053,9 @@ function adminOverview(){
   ${rows.map(b=>`<tr><td>${b.date}（${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）</td><td>${fmtT(b.s)}–${fmtT(b.e)}</td>
     <td>${b.kind==='m'?'<span class="chip chip-m">會員</span>':b.kind==='v'?'<span class="chip chip-v">訪客</span>':'<span class="chip chip-cancelled">日曆</span>'}</td>
     <td>${b.kind==='cal'?'Google 日曆事件':esc(b.name)+(b.memberCode?`（${esc(b.memberCode)}）`:'')}</td>
-    <td class="hint">${b.kind==='cal'?'—':b.payMethod==='transfer'?`NT$${b.amount}・末五碼 ${esc(b.payLast5||'—')}`:'時數'}</td>
+    <td class="hint">${b.kind==='cal'?'—':b.payMethod==='transfer'
+      ?`NT$${b.amount}・末五碼 ${esc(b.payLast5||'—')}${b.status==='confirmed'?`<br><label style="cursor:pointer;color:${b.payRecv?'var(--ok)':'var(--bad)'};font-weight:600"><input type="checkbox" ${b.payRecv?'checked':''} onchange="setPayRecv('${b.id}',this.checked)" style="width:auto;accent-color:var(--ok)"> 已收款</label>`:''}`
+      :'時數'}</td>
     <td>${b.kind==='cal'?'—':chip(b.status)}</td>
     <td>${b.kind==='cal'?'':`<button class="btn btn-bad btn-sm" onclick="adminCancelBooking('${b.id}')">取消</button>`}</td></tr>`).join('')}
   </table></div>

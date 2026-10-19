@@ -46,6 +46,7 @@
         "adminNotifiedAt": { ".validate": true },
         "userNotifiedAt": { ".validate": true },
         "cancelNotifiedAt": { ".validate": true },
+        "payRecv": { ".validate": "newData.isBoolean()" },
         "$other": { ".validate": false }
       }
     },

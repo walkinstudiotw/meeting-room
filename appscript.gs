@@ -213,7 +213,8 @@ function autoConfirmMembers_(settings, bookings, schedule, today, upd) {
   var pend = [];
   for (var id in bookings) {
     var b = bookings[id];
-    if (b.status === 'pending' && b.kind === 'm' && b.payMethod !== 'transfer') pend.push({ id: id, b: b });
+    // 會員預約一律自動確認（含匯款單；匯款收款由後台「已收款」勾選內部對帳）
+    if (b.status === 'pending' && b.kind === 'm') pend.push({ id: id, b: b });
   }
   if (!pend.length) return;
   pend.sort(function (a, b) { return (a.b.createdAt || 0) - (b.b.createdAt || 0); });
@@ -249,8 +250,8 @@ function autoConfirmMembers_(settings, bookings, schedule, today, upd) {
         if (b.s < ev.e && b.e > ev.s) { reason = '時段已被其他預約占用'; break; }
       }
     }
-    // 時數批次（儲值會員無月額度）
-    if (!reason) {
+    // 時數批次（儲值會員無月額度）；匯款單不扣時數、免檢核
+    if (!reason && b.payMethod !== 'transfer') {
       var quota = (mem.type === 'prepaid') ? 0 : (mem.quota || 0);
       var grants = allocate_(buildGrants_(quota, grantsAll[code], today), (confirmedUses[code] || []).slice());
       var avail = availFor_(grants, b.date);
@@ -268,7 +269,8 @@ function autoConfirmMembers_(settings, bookings, schedule, today, upd) {
       upd['schedule/' + b.date + '/' + id + '/st'] = 'confirmed';
       upd['memberBookings/' + code + '/' + ym + '/' + id + '/st'] = 'confirmed';
       b.status = 'confirmed';
-      (confirmedUses[code] = confirmedUses[code] || []).push({ date: b.date, h: (b.e - b.s) / 60, c: b.createdAt || 0 });
+      if (b.payMethod !== 'transfer') // 匯款單不占時數
+        (confirmedUses[code] = confirmedUses[code] || []).push({ date: b.date, h: (b.e - b.s) / 60, c: b.createdAt || 0 });
       // 佔位供本輪後續衝突檢查
       (schedule[b.date] = schedule[b.date] || {})[id] = { s: b.s, e: b.e, st: 'confirmed', k: 'm' };
     }
@@ -405,6 +407,15 @@ function sendNotifications_(settings, bookings, upd) {
         '電話：' + (b.phone || '') + '\nEmail：' + (b.email || '—') + '\n' +
         '付款：' + payTxt + '\n備註：' + (b.note || '—') + '\n\n' +
         '請至後台核對款項後核准。', { name: room });
+      upd['bookings/' + id + '/adminNotifiedAt'] = Date.now();
+    }
+    // 4a-2. 會員匯款單（已自動成立）→ 通知管理端核對收款（後台「預約總覽」勾「已收款」）
+    if (b.status === 'confirmed' && b.kind === 'm' && b.payMethod === 'transfer' && !b.adminNotifiedAt) {
+      GmailApp.sendEmail(adminMail, '【' + room + '】會員匯款預約已成立，請核對收款：' + when,
+        '預約時段：' + when + '\n' +
+        '會員：' + (b.name || '') + '（' + (b.memberCode || '') + '）\n' +
+        '應收：' + payTxt + '\n備註：' + (b.note || '—') + '\n\n' +
+        '預約已自動成立；收到款項後請至後台「預約總覽」勾選「已收款」。', { name: room });
       upd['bookings/' + id + '/adminNotifiedAt'] = Date.now();
     }
     // 4b. 確認 / 婉拒 → 通知預約人（訪客用表單 Email；會員自動查會員資料的 Email）
