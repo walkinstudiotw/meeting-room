@@ -866,7 +866,7 @@ function pickSlot(dateStr,m0,role){
   if(role==='member'&&!S.memberCode)return;
   const slot=S.settings.slotMinutes;
   S.pick={date:dateStr,m:m0,role};
-  document.getElementById('bk-title').textContent=(role==='member'?'會員預約':'訪客預約申請');
+  document.getElementById('bk-title').innerHTML=(role==='member'?'會員預約 <span class="chip chip-confirmed" style="vertical-align:2px">免審核</span>':'訪客預約申請');
   document.getElementById('bk-when').textContent=`${dateStr}（週${DAY_ZH[new Date(dateStr+'T00:00:00').getDay()]}）${fmtT(m0)} 起`;
   const durSel=document.getElementById('bk-dur');durSel.innerHTML='';
   let maxSlots=0;
@@ -897,7 +897,7 @@ function updatePayUI(){
   let h='<label>付款方式</label>';
   if(p.role==='member'){
     if(canHours){
-      h+=`<label class="pay-opt"><input type="radio" name="paym" ${method==='hours'?'checked':''} onchange="setPayM('hours')"><span class="pay-txt">⏱ 使用會員時數（該日可用 ${fmtH(leftH*60)} 小時，此次扣 ${fmtH(dur)}）<span class="chip chip-confirmed" style="margin-left:4px">免審核</span></span></label>
+      h+=`<label class="pay-opt"><input type="radio" name="paym" ${method==='hours'?'checked':''} onchange="setPayM('hours')"><span class="pay-txt">⏱ 使用會員時數（該日可用 ${fmtH(leftH*60)} 小時，此次扣 ${fmtH(dur)}）</span></label>
           <label class="pay-opt"><input type="radio" name="paym" ${method==='transfer'?'checked':''} onchange="setPayM('transfer')"><span class="pay-txt">💰 匯款付款 NT$${amt}</span></label>`;
     }else{
       h+=`<div class="pay-warn">該預約日可用時數不足（剩 ${fmtH(Math.max(0,leftH)*60)} 小時），此預約改以匯款付款（會員價 NT$${rate}/小時），一樣直接成立。</div>`;
