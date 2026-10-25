@@ -176,10 +176,19 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
   .week-nav{gap:8px}
   .week-nav .wk-label{font-size:15px}
   .mem-num{font-size:30px}
-  /* 後台表格手機微調 */
+  /* 後台手機版 */
   .tbl th,.tbl td{padding:7px 4px;font-size:13px}
-  .a-tabs button{padding:8px 10px;font-size:13px}
+  .a-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .a-tabs button{padding:9px 12px;font-size:14px;white-space:nowrap;flex:none}
+  .list-item .btn-sm{padding:9px 14px;font-size:14px}
+  .oh-grid{grid-template-columns:36px 1fr 1fr 40px;gap:6px}
+  .oh-grid select{padding:6px 4px}
 }
+
+/* 後台手機卡片（取代寬表格） */
+.adm-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
+.adm-card-btns{display:flex;gap:8px;margin-top:10px}
+.adm-card-btns .btn{flex:1;padding:9px 6px;font-size:14px}
 </style>
 </head>
 <body>
@@ -1093,6 +1102,24 @@ function adminOverview(){
       if(v.k==='cal')rows.push({id,date,s:v.s,e:v.e,kind:'cal',status:'confirmed',name:''});
   rows.sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
   const meta=S.admin.meta||{};
+  const metaHint=`<p class="hint" style="margin-top:10px">「日曆」＝你在 Google 日曆手動建立的事件（每 1 分鐘同步、自動擋掉時段）。上次同步：${meta.lastSyncAt?new Date(meta.lastSyncAt).toLocaleString('zh-TW'):'尚未同步'}${meta.lastError?`　<span style="color:var(--bad)">⚠ ${esc(String(meta.lastError).slice(0,120))}</span>`:''}</p>`;
+  if(isMobile()){
+    return `<div class="card"><h2>近期預約與占用</h2>
+    ${rows.length?rows.map(b=>`<div class="adm-card">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <b>${b.date.slice(5).replace('-','/')}（${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）${fmtT(b.s)}–${fmtT(b.e)}</b>
+        ${b.kind==='m'?'<span class="chip chip-m">會員</span>':b.kind==='v'?'<span class="chip chip-v">訪客</span>':'<span class="chip chip-cancelled">日曆</span>'}
+        ${b.kind==='cal'?'':chip(b.status)}
+      </div>
+      <div class="list-sub" style="margin-top:4px">${b.kind==='cal'?'Google 日曆事件':esc(b.name)+(b.memberCode?`（${esc(b.memberCode)}）`:'')}
+        ${b.kind!=='cal'?('｜'+(b.payMethod==='transfer'?`匯款 NT$${b.amount}・末五碼 ${esc(b.payLast5||'—')}`:'使用時數')):''}</div>
+      ${b.kind==='cal'?'':`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+        ${b.payMethod==='transfer'&&b.status==='confirmed'?`<label style="cursor:pointer;font-size:14px;color:${b.payRecv?'var(--ok)':'var(--bad)'};font-weight:600"><input type="checkbox" ${b.payRecv?'checked':''} onchange="setPayRecv('${b.id}',this.checked)" style="width:auto;accent-color:var(--ok)"> 已收款</label>`:'<span></span>'}
+        <button class="btn btn-bad btn-sm" onclick="adminCancelBooking('${b.id}')">取消</button>
+      </div>`}
+    </div>`).join(''):'<p class="hint">近期沒有預約</p>'}
+    ${metaHint}</div>`;
+  }
   return `<div class="card"><h2>近期預約與占用</h2>
   <div style="overflow-x:auto"><table class="tbl"><tr><th>日期</th><th>時段</th><th>類型</th><th>對象</th><th>付款</th><th>狀態</th><th></th></tr>
   ${rows.map(b=>`<tr><td>${b.date}（${DAY_ZH[new Date(b.date+'T00:00:00').getDay()]}）</td><td>${fmtT(b.s)}–${fmtT(b.e)}</td>
@@ -1104,11 +1131,32 @@ function adminOverview(){
     <td>${b.kind==='cal'?'—':chip(b.status)}</td>
     <td>${b.kind==='cal'?'':`<button class="btn btn-bad btn-sm" onclick="adminCancelBooking('${b.id}')">取消</button>`}</td></tr>`).join('')}
   </table></div>
-  <p class="hint" style="margin-top:10px">「日曆」列＝你在 Google 日曆手動建立的事件（每 1 分鐘同步、自動擋掉時段）。上次同步：${meta.lastSyncAt?new Date(meta.lastSyncAt).toLocaleString('zh-TW'):'尚未同步'}${meta.lastError?`　<span style="color:var(--bad)">⚠ ${esc(String(meta.lastError).slice(0,120))}</span>`:''}</p></div>`;
+  ${metaHint}</div>`;
 }
 function adminMembers(){
+  const body=isMobile()
+    ?Object.entries(S.admin.members).map(([c,m])=>`
+      <div class="adm-card" onclick="openMemberDetail('${c}')">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="font-size:15px">${esc(m.name)}</b>${typeChip(m.type)}
+          ${m.active!==false?'':'<span class="chip chip-cancelled">停用</span>'}
+          <span class="hint" style="margin-left:auto">${esc(c)}</span>
+        </div>
+        <div class="list-sub" style="margin-top:4px">${esc(m.phone)}｜${m.type==='prepaid'?'儲值制':'月額度 '+(m.quota||0)+'h'}｜可用 <b style="color:var(--brand)">${fmtH(balanceNow(c).total*60)}h</b></div>
+        <div class="adm-card-btns" onclick="event.stopPropagation()">
+          <button class="btn btn-ok" onclick="openAdminBooking('${c}')">預約</button>
+          <button class="btn btn-pri" onclick="openGrantModal('${c}')">${m.type==='prepaid'?'儲值':'發放時數'}</button>
+          <button class="btn btn-sec" onclick="openMemModal('${c}')">編輯</button>
+        </div>
+      </div>`).join('')||'<p class="hint">尚無會員</p>'
+    :adminMembersTable();
   return `<div class="card"><h2>會員管理 <button class="btn btn-pri btn-sm" style="float:right" onclick="openMemModal(null)">＋ 新增會員</button></h2>
-  <div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>類型</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
+  ${body}
+  <p class="hint" style="margin-top:10px">點會員${isMobile()?'卡片':'列'}可查看該會員的完整預約明細。🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
+  ${adminInvitesHTML()}`;
+}
+function adminMembersTable(){
+  return `<div style="overflow-x:auto"><table class="tbl"><tr><th>編號</th><th>類型</th><th>姓名</th><th>電話</th><th>月額度</th><th>可用時數</th><th>狀態</th><th></th></tr>
   ${Object.entries(S.admin.members).map(([c,m])=>`<tr onclick="openMemberDetail('${c}')" style="cursor:pointer"><td><b>${esc(c)}</b></td>
     <td>${typeChip(m.type)}</td><td>${esc(m.name)}</td><td>${esc(m.phone)}</td>
     <td>${m.type==='prepaid'?'—':(m.quota||0)+'h'}</td><td><b>${fmtH(balanceNow(c).total*60)}h</b></td>
@@ -1116,9 +1164,7 @@ function adminMembers(){
     <td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn btn-ok btn-sm" onclick="openAdminBooking('${c}')">預約</button>
       <button class="btn btn-pri btn-sm" onclick="openGrantModal('${c}')">${(S.admin.members[c]||{}).type==='prepaid'?'儲值':'發放時數'}</button>
       <button class="btn btn-sec btn-sm" onclick="openMemModal('${c}')">編輯</button></td></tr>`).join('')}
-  </table></div>
-  <p class="hint" style="margin-top:10px">點會員列可查看該會員的完整預約明細。🏢 2F月租：每月額度 1 號自動生效、當月月底到期。💳 儲值：無月額度，用「儲值」發放有期限的時數批次。扣抵時自動先用快到期的批次；會員以手機號碼查詢登入。</p></div>
-  ${adminInvitesHTML()}`;
+  </table></div>`;
 }
 // ── 會員邀請連結 ──
 function inviteURL(t){return location.origin+location.pathname+'#join/'+t;}
