@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>房子會議室預約</title>
 <meta name="description" content="房子會議室線上預約——查詢可預約時段、會員時數查詢與預約。">
 <meta property="og:title" content="房子會議室預約">
@@ -73,7 +73,8 @@ table.grid-30 tr.hr-row td{border-top:1px solid #e4e8ee}
 .day-chip{flex:1;min-width:44px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--sub)}
 .day-chip b{font-size:16px;color:var(--ink)}
 .day-chip.is-today b{color:var(--brand)}
-.day-chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.day-chip.off{opacity:.4}
+.day-chip.on{background:var(--brand);border-color:var(--brand);color:#fff;opacity:1}
 .day-chip.on b{color:#fff}
 .day-list{background:var(--card);border:1px solid var(--line);border-radius:12px;max-height:62vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .day-slot{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 16px;border:none;border-bottom:1px solid #f0f2f5;font-size:15px;background:#fff;text-align:left}
@@ -154,10 +155,30 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .sec-title{font-weight:700;margin:16px 0 8px;font-size:15px}
 
 @media (max-width:640px){
-  .hd-inner{padding:10px 12px}
-  nav{width:100%;justify-content:space-between}
-  nav button{flex:1}
-  main{padding:14px 10px 60px}
+  .hd-inner{padding:8px 12px;gap:8px}
+  .hd-title{font-size:16px}
+  nav{width:100%;justify-content:space-between;gap:5px}
+  nav button{flex:1;padding:9px 4px}
+  main{padding:12px 10px calc(50px + env(safe-area-inset-bottom))}
+  .card{padding:14px;border-radius:12px}
+  /* iOS：表單字級 <16px 會觸發聚焦自動放大 → 固定 16px */
+  input,select,textarea{font-size:16px !important}
+  /* 彈窗改底部抽屜式（手機慣用），按鈕加大好按 */
+  .modal-bg{padding:0;align-items:flex-end}
+  .modal{max-width:none !important;border-radius:18px 18px 0 0;max-height:90vh;overflow-y:auto;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+  .modal .btn{padding:12px 18px;font-size:16px}
+  .modal .btn-sm{padding:7px 12px;font-size:13px}
+  .modal-actions .btn{flex:1}
+  #toast{bottom:calc(16px + env(safe-area-inset-bottom));width:calc(100vw - 32px)}
+  /* 單日檢視：列高與字級加大 */
+  .day-slot{padding:14px 16px;font-size:16px}
+  .day-chip{padding:9px 2px}
+  .week-nav{gap:8px}
+  .week-nav .wk-label{font-size:15px}
+  .mem-num{font-size:30px}
+  /* 後台表格手機微調 */
+  .tbl th,.tbl td{padding:7px 4px;font-size:13px}
+  .a-tabs button{padding:8px 10px;font-size:13px}
 }
 </style>
 </head>
@@ -187,7 +208,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     </div>
     <div class="f-row" id="bk-pay"></div>
     <div class="f-row"><label>備註</label><textarea id="bk-note" maxlength="300" placeholder="用途、人數等（選填）"></textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-sec" onclick="closeModal('modal-book')">取消</button>
       <button class="btn btn-pri" id="bk-submit" onclick="submitBooking()">送出預約</button>
     </div>
@@ -209,7 +230,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     <div class="f-row" id="me-quota-row"><label>每月時數額度（小時）</label><input id="me-quota" type="number" min="0" max="200" value="10"></div>
     <p class="hint" id="me-type-hint" style="margin:-4px 0 12px"></p>
     <div class="f-row"><label><input type="checkbox" id="me-active" checked style="width:auto;margin-right:6px">啟用中</label></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-sec" onclick="closeModal('modal-mem')">取消</button>
       <button class="btn btn-pri" onclick="saveMember()">儲存</button>
     </div>
@@ -222,7 +243,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     <h3 id="md-title">會員預約明細</h3>
     <div id="md-summary" class="hint" style="margin:-6px 0 12px"></div>
     <div id="md-body" style="max-height:60vh;overflow-y:auto"></div>
-    <div style="display:flex;justify-content:space-between;margin-top:14px">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:space-between;margin-top:14px">
       <button class="btn btn-pri" onclick="closeModal('modal-mdetail');openAdminBooking(S.mdCode)">＋ 新增預約</button>
       <button class="btn btn-sec" onclick="closeModal('modal-mdetail')">關閉</button>
     </div>
@@ -244,7 +265,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     </select></div>
     <div class="f-row"><label>備註</label><input id="abk-note" maxlength="300" placeholder="選填"></div>
     <div id="abk-info" style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:12px"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-sec" onclick="closeModal('modal-abk')">取消</button>
       <button class="btn btn-pri" onclick="submitAdminBooking()">建立預約（直接成立）</button>
     </div>
@@ -260,7 +281,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
       <div class="f-row" style="flex:1.4"><label>使用期限（含當日）</label><input id="gr-exp" type="date"></div>
     </div>
     <div class="f-row"><label>備註</label><input id="gr-note" maxlength="50" placeholder="例：加購 10 小時 / 活動贈送 / 誤發修正"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin:4px 0 14px">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end;margin:4px 0 14px">
       <button class="btn btn-sec" id="gr-cancel-btn" onclick="cancelGrantEdit()">關閉</button>
       <button class="btn btn-pri" id="gr-save-btn" onclick="saveGrant()">發放</button>
     </div>
@@ -280,7 +301,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
     <div class="f-row"><label>備註（給自己看的，例：客人稱呼）</label><input id="in-note" maxlength="50"></div>
     <div class="f-row" style="width:160px"><label>連結有效天數</label><input id="in-days" type="number" min="1" max="90" value="7"></div>
     <div id="in-result" style="display:none;background:var(--ok-soft);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:14px;word-break:break-all"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-sec" onclick="closeModal('modal-invite')">關閉</button>
       <button class="btn btn-pri" id="in-create-btn" onclick="createInvite()">建立連結</button>
     </div>
@@ -724,7 +745,8 @@ function dayViewHTML(role){
     <button onclick="S.weekStart=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;})();S.selDay=fmtD(today);render()">今天</button>
   </div>
   <div class="day-strip">${days.map(d=>{const ds=fmtD(d);
-    return `<button class="day-chip ${ds===S.selDay?'on':''} ${ds===fmtD(today)?'is-today':''}" onclick="pickDay('${ds}')">
+    const off=ds<fmtD(today)||!hoursOf(role,ds); // 已過去或當日未開放 → 灰階提示
+    return `<button class="day-chip ${ds===S.selDay?'on':''} ${ds===fmtD(today)?'is-today':''} ${off?'off':''}" onclick="pickDay('${ds}')">
       <span>週${DAY_ZH[d.getDay()]}</span><b>${d.getDate()}</b></button>`;}).join('')}</div>`;
   h+='<div class="day-list">';
   let anyOpen=false;
